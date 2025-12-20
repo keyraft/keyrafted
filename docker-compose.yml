@@ -1,0 +1,22 @@
+services:
+  keyraft:
+    build: .
+    container_name: keyraft-server
+    ports:
+      - "7200:7200"
+    environment:
+      - KEYRAFT_MASTER_KEY=${KEYRAFT_MASTER_KEY:-change-this-in-production}
+    volumes:
+      - keyraft-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:7200/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  keyraft-data:
+    driver: local
+

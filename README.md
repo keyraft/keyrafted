@@ -1,8 +1,14 @@
-# Keyrafted
+# Keyraft
 
-> **Keyrafted** is the server component of the Keyraft project — a lightweight, self-hosted configuration and secrets management system.
+[![GitHub release](https://img.shields.io/github/v/release/keyraft/keyrafted?style=flat-square)](https://github.com/keyraft/keyrafted/releases)
+[![Docker Pulls](https://img.shields.io/docker/pulls/keyraft/keyrafted?style=flat-square)](https://hub.docker.com/r/keyraft/keyrafted)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/keyraft/keyrafted?style=flat-square)](https://go.dev/)
+[![License](https://img.shields.io/github/license/keyraft/keyrafted?style=flat-square)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/keyraft/keyrafted/ci.yml?branch=main&style=flat-square)](https://github.com/keyraft/keyrafted/actions)
 
-Keyrafted stores configuration and secrets securely, manages versioning, and serves requests from clients, CLI, and SDKs.
+> A lightweight, self-hosted configuration and secrets management system.
+
+Keyraft stores configuration and secrets securely, manages versioning, and provides live updates through a simple HTTP API.
 
 ---
 
@@ -52,20 +58,58 @@ Single-node architecture for v0.1 (clustering planned for v0.3):
 
 ---
 
+## Installation
+
+### Using Docker (Recommended)
+
+```bash
+docker pull keyraft/keyrafted:latest
+docker run -d -p 7200:7200 \
+  -e KEYRAFT_MASTER_KEY=$(openssl rand -base64 32) \
+  -v keyraft-data:/data \
+  keyraft/keyrafted:latest
+```
+
+### Using Install Script
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/keyraft/keyrafted/main/install.sh | sh
+```
+
+### Pre-built Binaries
+
+Download from [GitHub Releases](https://github.com/keyraft/keyrafted/releases/latest):
+
+```bash
+# Linux
+wget https://github.com/keyraft/keyrafted/releases/latest/download/keyrafted-linux-amd64
+chmod +x keyrafted-linux-amd64
+sudo mv keyrafted-linux-amd64 /usr/local/bin/keyrafted
+
+# macOS
+wget https://github.com/keyraft/keyrafted/releases/latest/download/keyrafted-darwin-amd64
+chmod +x keyrafted-darwin-amd64
+sudo mv keyrafted-darwin-amd64 /usr/local/bin/keyrafted
+```
+
+### From Source
+
+```bash
+go install github.com/keyraft/keyrafted@latest
+```
+
 ## Quick Start
 
 ```bash
-# Build
-git clone https://github.com/keyraft/keyrafted.git
-cd keyrafted
-go build -o keyrafted
+# 1. Initialize
+keyrafted init --data-dir ./data
 
-# Initialize (generates root token)
-./keyrafted init --data-dir ./data
-
-# Start server
+# 2. Start server
 export KEYRAFT_MASTER_KEY=$(openssl rand -base64 32)
-./keyrafted start --data-dir ./data --listen :7200
+keyrafted start --data-dir ./data
+
+# 3. Use the API
+curl http://localhost:7200/v1/health
 ```
 
 **📖 See [Getting Started Guide](docs/getting-started.md) for detailed setup**
@@ -208,19 +252,38 @@ keyrafted/
 - **[API Reference](docs/api-reference.md)** - Complete API documentation  
 - **[Go Client SDK](docs/go-client.md)** - Go client library guide
 - **[Deployment Guide](docs/deployment.md)** - Production deployment
+- **[Docker Guide](docs/docker.md)** - Container deployment
+- **[Contributing](docs/CONTRIBUTING.md)** - How to contribute
+
+---
+
+## Community
+
+- **Issues**: [GitHub Issues](https://github.com/keyraft/keyrafted/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/keyraft/keyrafted/discussions)
+- **Security**: Report vulnerabilities to security@keyraft.io
+
+---
+
+## Star History
+
+If you find Keyraft useful, please consider giving it a star ⭐
 
 ---
 
 ## License
 
-Apache License 2.0 – See [LICENSE](LICENSE) for details
+Apache License 2.0 - See [LICENSE](LICENSE) for details
 
 ---
 
 ## Acknowledgments
 
 Inspired by:
-* etcd - Distributed key-value store
-* HashiCorp Vault - Secrets management
-* Consul - Service mesh and configuration
-* Apache ZooKeeper – Distributed coordination
+* [etcd](https://etcd.io/) - Distributed key-value store
+* [HashiCorp Vault](https://www.vaultproject.io/) - Secrets management
+* [Consul](https://www.consul.io/) - Service mesh and configuration
+
+---
+
+**Built with ❤️ for developers who need simple, secure configuration management.**
