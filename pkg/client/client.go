@@ -309,56 +309,58 @@ func (c *Client) WatchStream(namespace string) (<-chan *WatchEvent, func(), erro
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, nil, fmt.Errorf("API error: %d", resp.StatusCode)
 	}
 
 	events := make(chan *WatchEvent, 10)
 	done := make(chan struct{})
 
-		go func() {
-			defer resp.Body.Close()
-			defer close(events)
-
-			scanner := bufio.NewScanner(resp.Body)
-			var currentData strings.Builder
-
-			for scanner.Scan() {
-				line := scanner.Text()
-
-				// Empty line indicates end of event
-				if line == "" {
-					if currentData.Len() > 0 {
-						var event WatchEvent
-						if err := json.Unmarshal([]byte(currentData.String()), &event); err == nil {
-							select {
-							case events <- &event:
-							case <-done:
-								return
-							}
-						}
-						currentData.Reset()
-					}
-					continue
-				}
-
-				// Parse SSE format: "event: <type>" or "data: <json>"
-				if strings.HasPrefix(line, "data: ") {
-					data := strings.TrimPrefix(line, "data: ")
-					currentData.WriteString(data)
-				}
-				// Note: We ignore "event:" lines for now, but could use them for event type filtering
-			}
-
-			if err := scanner.Err(); err != nil {
-				// Stream ended or error occurred
-				return
-			}
+	go func() {
+		defer func() {
+			_ = resp.Body.Close()
 		}()
+		defer close(events)
+
+		scanner := bufio.NewScanner(resp.Body)
+		var currentData strings.Builder
+
+		for scanner.Scan() {
+			line := scanner.Text()
+
+			// Empty line indicates end of event
+			if line == "" {
+				if currentData.Len() > 0 {
+					var event WatchEvent
+					if err := json.Unmarshal([]byte(currentData.String()), &event); err == nil {
+						select {
+						case events <- &event:
+						case <-done:
+							return
+						}
+					}
+					currentData.Reset()
+				}
+				continue
+			}
+
+			// Parse SSE format: "event: <type>" or "data: <json>"
+			if strings.HasPrefix(line, "data: ") {
+				data := strings.TrimPrefix(line, "data: ")
+				currentData.WriteString(data)
+			}
+			// Note: We ignore "event:" lines for now, but could use them for event type filtering
+		}
+
+		if err := scanner.Err(); err != nil {
+			// Stream ended or error occurred
+			return
+		}
+	}()
 
 	closeFn := func() {
 		close(done)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 	}
 
 	return events, closeFn, nil

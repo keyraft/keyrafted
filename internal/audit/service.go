@@ -63,4 +63,3 @@ func randomString(length int) string {
 	}
 	return hex.EncodeToString(bytes)[:length]
 }
-
