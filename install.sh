@@ -56,22 +56,22 @@ get_latest_version() {
     VERSION=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
     
     if [ -z "$VERSION" ]; then
-        echo "${RED}Failed to get latest version${NC}"
+        printf "%bFailed to get latest version%b\n" "$RED" "$NC"
         exit 1
     fi
     
-    echo "${GREEN}Latest version: $VERSION${NC}"
+    printf "%bLatest version: %s%b\n" "$GREEN" "$VERSION" "$NC"
 }
 
 # Download binary
 download_binary() {
-    BINARY_URL="https://github.com/$REPO/releases/download/$VERSION/${BINARY_NAME%-*}-${OS}-${ARCH}"
+    BINARY_URL="https://github.com/$REPO/releases/download/$VERSION/keyrafted-${OS}-${ARCH}"
     
     if [ "$OS" = "windows" ]; then
         BINARY_URL="${BINARY_URL}.exe"
     fi
     
-    echo "${YELLOW}Downloading from: $BINARY_URL${NC}"
+    printf "%bDownloading from: %s%b\n" "$YELLOW" "$BINARY_URL" "$NC"
     
     TMP_FILE=$(mktemp)
     
@@ -80,12 +80,12 @@ download_binary() {
     elif command -v wget >/dev/null 2>&1; then
         wget -q "$BINARY_URL" -O "$TMP_FILE"
     else
-        echo "${RED}Error: curl or wget is required${NC}"
+        printf "%bError: curl or wget is required%b\n" "$RED" "$NC"
         exit 1
     fi
     
     if [ ! -s "$TMP_FILE" ]; then
-        echo "${RED}Failed to download binary${NC}"
+        printf "%bFailed to download binary%b\n" "$RED" "$NC"
         rm -f "$TMP_FILE"
         exit 1
     fi
@@ -125,11 +125,10 @@ verify_installation() {
 
 # Main installation
 main() {
-    echo "${GREEN}Keyraft Installation Script${NC}"
-    echo ""
+    printf "%bKeyraft Installation Script%b\n\n" "$GREEN" "$NC"
     
     detect_platform
-    echo "Detected platform: ${YELLOW}$OS/$ARCH${NC}"
+    printf "Detected platform: %b%s/%s%b\n" "$YELLOW" "$OS" "$ARCH" "$NC"
     
     get_latest_version
     
@@ -139,15 +138,12 @@ main() {
     
     verify_installation
     
-    echo ""
-    echo "${GREEN}Installation complete!${NC}"
-    echo ""
-    echo "Quick start:"
-    echo "  1. Initialize: ${YELLOW}keyrafted init --data-dir ./data${NC}"
-    echo "  2. Start:      ${YELLOW}export KEYRAFT_MASTER_KEY=\$(openssl rand -base64 32)${NC}"
-    echo "                 ${YELLOW}keyrafted start --data-dir ./data${NC}"
-    echo ""
-    echo "Documentation: ${YELLOW}https://github.com/$REPO${NC}"
+    printf "\n%bInstallation complete!%b\n\n" "$GREEN" "$NC"
+    printf "Quick start:\n"
+    printf "  1. Initialize: %bkeyrafted init --data-dir ./data%b\n" "$YELLOW" "$NC"
+    printf "  2. Start:      %bexport KEYRAFT_MASTER_KEY=\$(openssl rand -base64 32)%b\n" "$YELLOW" "$NC"
+    printf "                 %bkeyrafted start --data-dir ./data%b\n" "$YELLOW" "$NC"
+    printf "\nDocumentation: %bhttps://github.com/%s%b\n" "$YELLOW" "$REPO" "$NC"
 }
 
 main

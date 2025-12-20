@@ -24,11 +24,15 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /app
 
-# Copy binary from builder
+# Copy binary and entrypoint from builder
 COPY --from=builder /build/keyrafted /app/keyrafted
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 
 # Create data directory
 RUN mkdir -p /data && chmod 700 /data
+
+# Make entrypoint executable
+RUN chmod +x /app/docker-entrypoint.sh
 
 # Expose port
 EXPOSE 7200
@@ -41,7 +45,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 RUN adduser -D -u 1000 keyraft && chown -R keyraft:keyraft /app /data
 USER keyraft
 
-# Default command
-ENTRYPOINT ["/app/keyrafted"]
-CMD ["start", "--data-dir", "/data", "--listen", ":7200"]
+# Use entrypoint script
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+CMD ["--data-dir", "/data", "--listen", ":7200"]
 
