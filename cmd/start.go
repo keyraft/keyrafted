@@ -43,7 +43,11 @@ func runStart() error {
 	if err := store.Open(); err != nil {
 		return fmt.Errorf("failed to open storage: %w", err)
 	}
-	defer store.Close()
+	defer func() {
+		if err := store.Close(); err != nil {
+			log.Printf("Error closing storage: %v", err)
+		}
+	}()
 
 	// Initialize encryptor
 	encryptor, err := crypto.NewEncryptorFromEnv("KEYRAFT_MASTER_KEY", masterKeyFile)

@@ -3,7 +3,6 @@ package integration
 import (
 	"context"
 	"fmt"
-	"keyrafted/internal/api"
 	"keyrafted/internal/auth"
 	"keyrafted/internal/crypto"
 	"keyrafted/internal/engine"
@@ -17,49 +16,14 @@ import (
 	"time"
 )
 
-func setupTestServer(t *testing.T) (*api.Server, *auth.Service, string, func()) {
-	// Create temp directory for test database
-	tempDir, err := os.MkdirTemp("", "keyraft-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-
-	dbPath := filepath.Join(tempDir, "test.db")
-
-	// Initialize storage
-	store := storage.NewBoltDBStorage(dbPath)
-	if err := store.Open(); err != nil {
-		t.Fatalf("Failed to open storage: %v", err)
-	}
-
-	// Initialize encryptor
-	encryptor, err := crypto.NewEncryptor([]byte("test-master-key-32-bytes-long!!!"))
-	if err != nil {
-		t.Fatalf("Failed to create encryptor: %v", err)
-	}
-
-	// Initialize services
-	eng := engine.NewEngine(store, encryptor)
-	authSvc := auth.NewService(store)
-	watchMgr := watch.NewManager()
-
-	// Create API server
-	server := api.NewServer(":0", eng, authSvc, watchMgr)
-
-	cleanup := func() {
-		store.Close()
-		os.RemoveAll(tempDir)
-	}
-
-	return server, authSvc, dbPath, cleanup
-}
-
 func TestStorageOperations(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "keyraft-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	dbPath := filepath.Join(tempDir, "test.db")
 	store := storage.NewBoltDBStorage(dbPath)
@@ -67,7 +31,9 @@ func TestStorageOperations(t *testing.T) {
 	if err := store.Open(); err != nil {
 		t.Fatalf("Failed to open storage: %v", err)
 	}
-	defer store.Close()
+	defer func() {
+		_ = store.Close()
+	}()
 
 	// Test KV operations
 	entry := &models.KVEntry{
@@ -139,7 +105,9 @@ func TestEncryptionIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	dbPath := filepath.Join(tempDir, "test.db")
 	store := storage.NewBoltDBStorage(dbPath)
@@ -147,7 +115,9 @@ func TestEncryptionIntegration(t *testing.T) {
 	if err := store.Open(); err != nil {
 		t.Fatalf("Failed to open storage: %v", err)
 	}
-	defer store.Close()
+	defer func() {
+		_ = store.Close()
+	}()
 
 	encryptor, err := crypto.NewEncryptor([]byte("test-master-key-32-bytes-long!!!"))
 	if err != nil {
@@ -194,7 +164,9 @@ func TestAuthenticationFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	dbPath := filepath.Join(tempDir, "test.db")
 	store := storage.NewBoltDBStorage(dbPath)
@@ -202,7 +174,9 @@ func TestAuthenticationFlow(t *testing.T) {
 	if err := store.Open(); err != nil {
 		t.Fatalf("Failed to open storage: %v", err)
 	}
-	defer store.Close()
+	defer func() {
+		_ = store.Close()
+	}()
 
 	authSvc := auth.NewService(store)
 
@@ -260,7 +234,9 @@ func TestVersioning(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	dbPath := filepath.Join(tempDir, "test.db")
 	store := storage.NewBoltDBStorage(dbPath)
@@ -268,7 +244,9 @@ func TestVersioning(t *testing.T) {
 	if err := store.Open(); err != nil {
 		t.Fatalf("Failed to open storage: %v", err)
 	}
-	defer store.Close()
+	defer func() {
+		_ = store.Close()
+	}()
 
 	encryptor, err := crypto.NewEncryptor([]byte("test-master-key-32-bytes-long!!!"))
 	if err != nil {

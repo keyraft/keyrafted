@@ -7,6 +7,7 @@ import (
 	"io"
 	"keyrafted/internal/auth"
 	"keyrafted/internal/models"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -33,7 +34,10 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 # TYPE keyraft_active_watches gauge
 keyraft_active_watches %d
 `, s.watch.ActiveWatchers())
-	w.Write([]byte(metrics))
+
+	if _, err := w.Write([]byte(metrics)); err != nil {
+		log.Printf("Error writing metrics: %v", err)
+	}
 }
 
 // handleSetKey stores or updates a key
