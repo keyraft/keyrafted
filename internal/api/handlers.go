@@ -219,7 +219,7 @@ func (s *Server) handleListKeys(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleWatch implements long-polling for watching changes
+// handleWatch implements long-polling and SSE for watching changes
 func (s *Server) handleWatch(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	namespace := vars["namespace"]
@@ -237,6 +237,18 @@ func (s *Server) handleWatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if SSE mode is requested
+	if r.URL.Query().Get("stream") == "true" || r.Header.Get("Accept") == "text/event-stream" {
+		s.handleWatchSSE(w, r, namespace)
+		return
+	}
+
+	// Default: long-polling mode (backward compatible)
+	s.handleWatchLongPoll(w, r, namespace)
+}
+
+// handleWatchLongPoll implements long-polling for watching changes
+func (s *Server) handleWatchLongPoll(w http.ResponseWriter, r *http.Request, namespace string) {
 	// Parse timeout parameter (default 30s)
 	timeoutStr := r.URL.Query().Get("timeout")
 	timeout := 30 * time.Second
@@ -262,6 +274,74 @@ func (s *Server) handleWatch(w http.ResponseWriter, r *http.Request) {
 		respondJSON(w, http.StatusOK, map[string]interface{}{
 			"timeout": true,
 		})
+	}
+}
+
+// handleWatchSSE implements Server-Sent Events for streaming watch updates
+func (s *Server) handleWatchSSE(w http.ResponseWriter, r *http.Request, namespace string) {
+	// Set SSE headers BEFORE writing any response
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no") // Disable nginx buffering
+	w.Header().Set("Access-Control-Allow-Origin", "*") // Allow CORS for SSE
+
+	// Write status code before flushing
+	w.WriteHeader(http.StatusOK)
+
+	// Flush headers immediately
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+
+	// Create watcher with larger buffer for streaming
+	ctx := r.Context()
+	watcher := s.watch.Watch(ctx, namespace, 100)
+	defer s.watch.Unwatch(watcher.ID)
+
+	// Send initial connection event
+	s.writeSSEEvent(w, "connected", map[string]interface{}{
+		"namespace": namespace,
+		"timestamp": time.Now(),
+	})
+	// Flush the connection event immediately
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+
+	// Stream events
+	for {
+		select {
+		case event, ok := <-watcher.Events:
+			if !ok {
+				// Channel closed
+				return
+			}
+			// Send event as SSE
+			s.writeSSEEvent(w, "change", event)
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
+		case <-ctx.Done():
+			// Client disconnected or request cancelled
+			return
+		}
+	}
+}
+
+// writeSSEEvent writes a Server-Sent Event
+func (s *Server) writeSSEEvent(w http.ResponseWriter, eventType string, data interface{}) {
+	// Format: event: <type>\ndata: <json>\n\n
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		log.Printf("Error marshaling SSE event: %v", err)
+		return
+	}
+
+	// Ensure we're writing SSE format, not JSON
+	event := fmt.Sprintf("event: %s\ndata: %s\n\n", eventType, string(jsonData))
+	if _, err := w.Write([]byte(event)); err != nil {
+		log.Printf("Error writing SSE event: %v", err)
 	}
 }
 

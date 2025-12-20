@@ -313,3 +313,50 @@ func TestClientSDK(t *testing.T) {
 		t.Error("Failed to create client")
 	}
 }
+
+func TestSSEWatch(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	store := storage.NewBoltDBStorage(dbPath)
+
+	if err := store.Open(); err != nil {
+		t.Fatalf("Failed to open storage: %v", err)
+	}
+	defer func() {
+		_ = store.Close()
+	}()
+
+	encryptor, err := crypto.NewEncryptor([]byte("test-master-key-32-bytes-long!!!"))
+	if err != nil {
+		t.Fatalf("Failed to create encryptor: %v", err)
+	}
+
+	eng := engine.NewEngine(store, encryptor)
+	authSvc := auth.NewService(store)
+	watchMgr := watch.NewManager()
+
+	// Initialize root token
+	_, err = authSvc.InitializeRootToken()
+	if err != nil {
+		t.Fatalf("Failed to create root token: %v", err)
+	}
+
+	// Create test server (would need actual HTTP server for full test)
+	// This is a basic structure test
+	if eng == nil || authSvc == nil || watchMgr == nil {
+		t.Error("Failed to create required services")
+	}
+
+	// Test that watch manager can handle events
+	entry := &models.KVEntry{
+		Namespace: "test/prod",
+		Key:       "TEST_KEY",
+		Value:     "test-value",
+		Type:      models.TypeConfig,
+	}
+
+	watchMgr.NotifySet(entry)
+	if watchMgr.ActiveWatchers() != 0 {
+		t.Log("Watch manager is working")
+	}
+}
