@@ -101,7 +101,7 @@ Fixes #123
 
 ### Report Issues
 
-Report unacceptable behavior to keyrafted@gmail.com
+Report unacceptable behavior to xentixar@gmail.com
 
 ## Questions?
 

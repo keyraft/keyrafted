@@ -195,55 +195,6 @@ go test ./tests/integration -v
 go test ./tests/... -cover
 ```
 
-### Project Structure
-
-```
-keyrafted/
-├── cmd/                  # CLI commands (root, init, start)
-├── internal/
-│   ├── api/             # HTTP API handlers
-│   ├── auth/            # Authentication service
-│   ├── crypto/          # Encryption utilities
-│   ├── engine/          # Config/secrets engine
-│   ├── models/          # Data models
-│   ├── storage/         # BoltDB storage layer
-│   └── watch/           # Watch manager
-├── pkg/
-│   └── client/          # Go SDK
-├── tests/
-│   ├── unit/            # Unit tests
-│   └── integration/     # Integration tests
-└── docs/                # Documentation
-```
-
----
-
-## Roadmap
-
-**v0.1** ✅ (Current)
-- Single-node server
-- BoltDB storage
-- Token authentication
-- HTTP API
-- Versioning & watch
-- Go SDK
-
-**v0.2** (Next)
-- SSE for watch streaming
-- Enhanced audit logging
-- Metrics dashboard
-- Docker image
-
-**v0.3** (Future)
-- Raft clustering
-- Multi-node HA
-- Leader election
-
-**v1.0** (Stable)
-- Production-ready
-- Backward compatibility guarantee
-- Performance optimizations
-
 ---
 
 ## Documentation
