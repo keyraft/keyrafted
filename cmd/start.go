@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"keyrafted/internal/api"
+	"keyrafted/internal/audit"
 	"keyrafted/internal/auth"
 	"keyrafted/internal/crypto"
 	"keyrafted/internal/engine"
@@ -59,6 +60,7 @@ func runStart() error {
 	eng := engine.NewEngine(store, encryptor)
 	authSvc := auth.NewService(store)
 	watchMgr := watch.NewManager()
+	auditSvc := audit.NewService(store)
 
 	// Check if root token exists
 	tokens, err := authSvc.ListTokens()
@@ -71,7 +73,7 @@ func runStart() error {
 	}
 
 	// Create and start API server
-	server := api.NewServer(listenAddr, eng, authSvc, watchMgr)
+	server := api.NewServer(listenAddr, eng, authSvc, watchMgr, auditSvc)
 
 	// Handle graceful shutdown
 	go func() {

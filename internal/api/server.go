@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"keyrafted/internal/audit"
 	"keyrafted/internal/auth"
 	"keyrafted/internal/engine"
 	"keyrafted/internal/watch"
@@ -18,17 +19,19 @@ type Server struct {
 	engine     *engine.Engine
 	auth       *auth.Service
 	watch      *watch.Manager
+	audit      *audit.Service
 	router     *mux.Router
 	server     *http.Server
 	listenAddr string
 }
 
 // NewServer creates a new API server
-func NewServer(listenAddr string, engine *engine.Engine, authSvc *auth.Service, watchMgr *watch.Manager) *Server {
+func NewServer(listenAddr string, engine *engine.Engine, authSvc *auth.Service, watchMgr *watch.Manager, auditSvc *audit.Service) *Server {
 	s := &Server{
 		engine:     engine,
 		auth:       authSvc,
 		watch:      watchMgr,
+		audit:      auditSvc,
 		listenAddr: listenAddr,
 	}
 
@@ -66,6 +69,9 @@ func (s *Server) setupRouter() {
 	api.HandleFunc("/auth/token", s.handleCreateToken).Methods("POST")
 	api.HandleFunc("/auth/tokens", s.handleListTokens).Methods("GET")
 	api.HandleFunc("/auth/token/{token}", s.handleRevokeToken).Methods("DELETE")
+
+	// Audit log endpoints
+	api.HandleFunc("/audit", s.handleGetAuditLogs).Methods("GET")
 
 	s.router = r
 }
