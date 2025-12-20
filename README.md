@@ -37,6 +37,10 @@ docker run -d -p 7200:7200 \
   keyraft/keyrafted:latest
 ```
 
+**Docker Images:**
+- **Docker Hub:** [keyraft/keyrafted](https://hub.docker.com/r/keyraft/keyrafted)
+- **GitHub Container Registry:** `ghcr.io/keyraft/keyrafted:latest` - [View Packages](https://github.com/keyraft/keyrafted/pkgs/container/keyrafted)
+
 The container automatically initializes on first run. Get the root token from logs:
 
 ```bash
@@ -387,6 +391,9 @@ Pattern: `project/environment/service`
 
 ## Community
 
+- **GitHub**: [keyraft/keyrafted](https://github.com/keyraft/keyrafted)
+- **Docker Hub**: [keyraft/keyrafted](https://hub.docker.com/r/keyraft/keyrafted)
+- **GitHub Packages**: [ghcr.io/keyraft/keyrafted](https://github.com/keyraft/keyrafted/pkgs/container/keyrafted)
 - **Issues**: [GitHub Issues](https://github.com/keyraft/keyrafted/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/keyraft/keyrafted/discussions)
 - **Security**: Report vulnerabilities to xentixar@gmail.com
