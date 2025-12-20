@@ -1,11 +1,13 @@
 package client
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -281,6 +283,85 @@ type WatchEvent struct {
 	Entry     *Entry    `json:"entry,omitempty"`
 	Timestamp time.Time `json:"timestamp"`
 	Timeout   bool      `json:"timeout,omitempty"`
+}
+
+// WatchStream streams events using Server-Sent Events (SSE)
+// Returns a channel that receives events and a function to close the stream
+func (c *Client) WatchStream(namespace string) (<-chan *WatchEvent, func(), error) {
+	url := fmt.Sprintf("%s/v1/watch/%s?stream=true", c.baseURL, namespace)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Accept", "text/event-stream")
+
+	// Use a client without timeout for streaming
+	streamClient := &http.Client{
+		Timeout: 0, // No timeout for streaming
+	}
+
+	resp, err := streamClient.Do(req)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close()
+		return nil, nil, fmt.Errorf("API error: %d", resp.StatusCode)
+	}
+
+	events := make(chan *WatchEvent, 10)
+	done := make(chan struct{})
+
+		go func() {
+			defer resp.Body.Close()
+			defer close(events)
+
+			scanner := bufio.NewScanner(resp.Body)
+			var currentData strings.Builder
+
+			for scanner.Scan() {
+				line := scanner.Text()
+
+				// Empty line indicates end of event
+				if line == "" {
+					if currentData.Len() > 0 {
+						var event WatchEvent
+						if err := json.Unmarshal([]byte(currentData.String()), &event); err == nil {
+							select {
+							case events <- &event:
+							case <-done:
+								return
+							}
+						}
+						currentData.Reset()
+					}
+					continue
+				}
+
+				// Parse SSE format: "event: <type>" or "data: <json>"
+				if strings.HasPrefix(line, "data: ") {
+					data := strings.TrimPrefix(line, "data: ")
+					currentData.WriteString(data)
+				}
+				// Note: We ignore "event:" lines for now, but could use them for event type filtering
+			}
+
+			if err := scanner.Err(); err != nil {
+				// Stream ended or error occurred
+				return
+			}
+		}()
+
+	closeFn := func() {
+		close(done)
+		resp.Body.Close()
+	}
+
+	return events, closeFn, nil
 }
 
 // Health checks server health

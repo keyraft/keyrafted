@@ -19,7 +19,7 @@ Keyraft stores configuration and secrets securely, manages versioning, and provi
 * ✅ Namespaces for isolation (`project/environment/service`)
 * ✅ Token-based authentication with scoped API keys
 * ✅ Historical version tracking
-* ✅ Watch API for live updates (long-polling)
+* ✅ Watch API for live updates (SSE streaming + long-polling)
 * ✅ HTTP/JSON protocol
 * ✅ Prometheus metrics endpoint
 * ✅ Go SDK with caching and auto-reload
@@ -175,11 +175,32 @@ curl -X DELETE http://localhost:7200/v1/kv/myapp/prod/DB_HOST \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
-### Watch for Changes
+### Watch for Changes (Long-Polling)
 
 ```bash
 curl http://localhost:7200/v1/watch/myapp/prod?timeout=30s \
   -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### Watch for Changes (SSE Stream)
+
+```bash
+# Using curl with SSE
+curl -N http://localhost:7200/v1/watch/myapp/prod?stream=true \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Accept: text/event-stream"
+```
+
+**SSE Response Format:**
+```
+event: connected
+data: {"namespace":"myapp/prod","timestamp":"2025-12-20T10:00:00Z"}
+
+event: change
+data: {"action":"set","namespace":"myapp/prod","key":"DB_HOST","entry":{...},"timestamp":"2025-12-20T10:01:00Z"}
+
+event: change
+data: {"action":"delete","namespace":"myapp/prod","key":"OLD_KEY","timestamp":"2025-12-20T10:02:00Z"}
 ```
 
 ### Create Scoped Token
@@ -222,7 +243,8 @@ curl http://localhost:7200/v1/health
 | `GET` | `/v1/kv/{namespace}/{key}?version={n}` | Get specific version |
 | `GET` | `/v1/kv/{namespace}` | List keys in namespace |
 | `DELETE` | `/v1/kv/{namespace}/{key}` | Delete key |
-| `GET` | `/v1/watch/{namespace}?timeout={duration}` | Watch for changes |
+| `GET` | `/v1/watch/{namespace}?timeout={duration}` | Watch for changes (long-poll) |
+| `GET` | `/v1/watch/{namespace}?stream=true` | Watch for changes (SSE stream) |
 | `POST` | `/v1/auth/token` | Create token |
 | `GET` | `/v1/auth/tokens` | List tokens |
 | `DELETE` | `/v1/auth/token/{token}` | Revoke token |
@@ -291,6 +313,26 @@ cached.OnChange(func(key, value string) {
     fmt.Printf("Config changed: %s = %s\n", key, value)
     // Reload your application configuration
 })
+```
+
+### Watch Stream (SSE)
+
+```go
+// Stream events using Server-Sent Events (real-time)
+events, closeFn, err := c.WatchStream("myapp/prod")
+if err != nil {
+    log.Fatal(err)
+}
+defer closeFn()
+
+// Process events as they arrive in real-time
+for event := range events {
+    fmt.Printf("Change: %s on %s/%s\n", event.Action, event.Namespace, event.Key)
+    if event.Entry != nil {
+        fmt.Printf("New value: %s\n", event.Entry.Value)
+    }
+    // Handle config changes immediately
+}
 ```
 
 ---
