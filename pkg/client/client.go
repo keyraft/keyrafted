@@ -288,4 +288,3 @@ func (c *Client) Health() (map[string]interface{}, error) {
 
 	return result, nil
 }
-

@@ -27,7 +27,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
-	
+
 	// Basic metrics for now
 	metrics := fmt.Sprintf(`# HELP keyraft_active_watches Number of active watch connections
 # TYPE keyraft_active_watches gauge
@@ -403,5 +403,3 @@ func (s *Server) handleRevokeToken(w http.ResponseWriter, r *http.Request) {
 
 	respondJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
 }
-
-

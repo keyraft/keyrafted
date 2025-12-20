@@ -157,4 +157,3 @@ func (e *Engine) ListNamespaces() ([]*models.Namespace, error) {
 func (e *Engine) GetNamespace(name string) (*models.Namespace, error) {
 	return e.storage.GetNamespace(name)
 }
-

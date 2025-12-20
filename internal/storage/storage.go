@@ -36,4 +36,3 @@ type Storage interface {
 	// Version management
 	GetNextVersion(namespace, key string) (int64, error)
 }
-

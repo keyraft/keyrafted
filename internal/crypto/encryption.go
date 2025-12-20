@@ -142,4 +142,3 @@ func GenerateID() (string, error) {
 	}
 	return fmt.Sprintf("%x", bytes), nil
 }
-

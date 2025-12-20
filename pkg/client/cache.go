@@ -219,4 +219,3 @@ func (cc *CachedClient) notifyChanges(oldCache, newCache map[string]*Entry) {
 		}
 	}
 }
-

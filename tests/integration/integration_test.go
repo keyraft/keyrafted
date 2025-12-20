@@ -63,7 +63,7 @@ func TestStorageOperations(t *testing.T) {
 
 	dbPath := filepath.Join(tempDir, "test.db")
 	store := storage.NewBoltDBStorage(dbPath)
-	
+
 	if err := store.Open(); err != nil {
 		t.Fatalf("Failed to open storage: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestEncryptionIntegration(t *testing.T) {
 
 	dbPath := filepath.Join(tempDir, "test.db")
 	store := storage.NewBoltDBStorage(dbPath)
-	
+
 	if err := store.Open(); err != nil {
 		t.Fatalf("Failed to open storage: %v", err)
 	}
@@ -198,7 +198,7 @@ func TestAuthenticationFlow(t *testing.T) {
 
 	dbPath := filepath.Join(tempDir, "test.db")
 	store := storage.NewBoltDBStorage(dbPath)
-	
+
 	if err := store.Open(); err != nil {
 		t.Fatalf("Failed to open storage: %v", err)
 	}
@@ -264,7 +264,7 @@ func TestVersioning(t *testing.T) {
 
 	dbPath := filepath.Join(tempDir, "test.db")
 	store := storage.NewBoltDBStorage(dbPath)
-	
+
 	if err := store.Open(); err != nil {
 		t.Fatalf("Failed to open storage: %v", err)
 	}
@@ -364,4 +364,3 @@ func TestClientSDK(t *testing.T) {
 		t.Error("Failed to create client")
 	}
 }
-

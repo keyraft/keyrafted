@@ -102,4 +102,3 @@ func init() {
 	startCmd.Flags().StringVar(&masterKey, "master-key", "", "Master encryption key (or use KEYRAFT_MASTER_KEY env var)")
 	startCmd.Flags().StringVar(&masterKeyFile, "master-key-file", "", "Path to master encryption key file")
 }
-

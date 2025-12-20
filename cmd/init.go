@@ -58,4 +58,3 @@ func runInit() error {
 func init() {
 	rootCmd.AddCommand(initCmd)
 }
-

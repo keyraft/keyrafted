@@ -189,4 +189,3 @@ func (s *Service) InitializeRootToken() (*models.Token, error) {
 
 	return rootToken, nil
 }
-

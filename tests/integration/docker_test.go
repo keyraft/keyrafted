@@ -17,13 +17,12 @@ func TestDockerHealthCheck(t *testing.T) {
 func TestLongRunningOperations(t *testing.T) {
 	// Test that operations complete within reasonable time
 	start := time.Now()
-	
+
 	// Simulate some work
 	time.Sleep(10 * time.Millisecond)
-	
+
 	duration := time.Since(start)
 	if duration > 1*time.Second {
 		t.Errorf("Operation took too long: %v", duration)
 	}
 }
-

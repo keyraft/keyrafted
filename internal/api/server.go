@@ -15,12 +15,12 @@ import (
 
 // Server represents the HTTP API server
 type Server struct {
-	engine      *engine.Engine
-	auth        *auth.Service
-	watch       *watch.Manager
-	router      *mux.Router
-	server      *http.Server
-	listenAddr  string
+	engine     *engine.Engine
+	auth       *auth.Service
+	watch      *watch.Manager
+	router     *mux.Router
+	server     *http.Server
+	listenAddr string
 }
 
 // NewServer creates a new API server
@@ -94,12 +94,12 @@ func (s *Server) Shutdown(ctx context.Context) error {
 func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		
+
 		// Create a response writer wrapper to capture status code
 		wrapped := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
-		
+
 		next.ServeHTTP(wrapped, r)
-		
+
 		duration := time.Since(start)
 		log.Printf("%s %s %d %v", r.Method, r.URL.Path, wrapped.statusCode, duration)
 	})
@@ -130,4 +130,3 @@ func respondJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 func respondError(w http.ResponseWriter, statusCode int, message string) {
 	respondJSON(w, statusCode, map[string]string{"error": message})
 }
-

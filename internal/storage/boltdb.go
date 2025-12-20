@@ -364,10 +364,10 @@ func (s *BoltDBStorage) ListTokens() ([]*models.Token, error) {
 func (s *BoltDBStorage) LogAudit(entry *models.AuditLogEntry) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(bucketAuditLog)
-		
+
 		// Use timestamp + ID as key for ordering
 		key := fmt.Sprintf("%d_%s", entry.Timestamp.UnixNano(), entry.ID)
-		
+
 		data, err := json.Marshal(entry)
 		if err != nil {
 			return err
@@ -419,7 +419,7 @@ func (s *BoltDBStorage) GetNextVersion(namespace, key string) (int64, error) {
 func (s *BoltDBStorage) getNextVersionTx(tx *bolt.Tx, namespace, key string) (int64, error) {
 	bucket := tx.Bucket(bucketMeta)
 	versionKey := []byte("version_" + makeKVKey(namespace, key))
-	
+
 	data := bucket.Get(versionKey)
 	var version int64 = 1
 	if data != nil {
@@ -437,7 +437,7 @@ func (s *BoltDBStorage) getNextVersionTx(tx *bolt.Tx, namespace, key string) (in
 
 func (s *BoltDBStorage) saveNamespace(tx *bolt.Tx, ns *models.Namespace) error {
 	bucket := tx.Bucket(bucketNamespaces)
-	
+
 	// Check if exists
 	existing := bucket.Get([]byte(ns.Name))
 	if existing != nil {
@@ -464,4 +464,3 @@ func makeKVKey(namespace, key string) string {
 func makeVersionKey(namespace, key string, version int64) string {
 	return fmt.Sprintf("%s#%020d", makeKVKey(namespace, key), version)
 }
-

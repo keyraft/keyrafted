@@ -17,15 +17,15 @@ const (
 
 // KVEntry represents a key-value entry in the store
 type KVEntry struct {
-	Namespace  string            `json:"namespace"`
-	Key        string            `json:"key"`
-	Value      string            `json:"value"`
-	Type       EntryType         `json:"type"`
-	Version    int64             `json:"version"`
-	CreatedAt  time.Time         `json:"created_at"`
-	UpdatedAt  time.Time         `json:"updated_at"`
-	Metadata   map[string]string `json:"metadata,omitempty"`
-	IsDeleted  bool              `json:"is_deleted,omitempty"`
+	Namespace string            `json:"namespace"`
+	Key       string            `json:"key"`
+	Value     string            `json:"value"`
+	Type      EntryType         `json:"type"`
+	Version   int64             `json:"version"`
+	CreatedAt time.Time         `json:"created_at"`
+	UpdatedAt time.Time         `json:"updated_at"`
+	Metadata  map[string]string `json:"metadata,omitempty"`
+	IsDeleted bool              `json:"is_deleted,omitempty"`
 }
 
 // Version represents a historical version of a KV entry
@@ -116,4 +116,3 @@ func ToJSON(v interface{}) ([]byte, error) {
 func FromJSON(data []byte, v interface{}) error {
 	return json.Unmarshal(data, v)
 }
-
