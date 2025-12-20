@@ -6,34 +6,35 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	dataDir       string
+	listenAddr    string
+	masterKey     string
+	masterKeyFile string
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "keyrafted",
-	Short: "Keyrafted is the server component of the Keyraft project — a lightweight, self-hosted, distributed configuration and secrets management system.",
-	Long: `Keyrafted is responsible for running the cluster nodes, managing replication,
-storing configuration and secrets securely, and serving requests from clients, CLI, and SDKs.
+	Short: "Keyrafted is the server component of the Keyraft project",
+	Long: `Keyrafted - A lightweight, self-hosted configuration and secrets management system.
 
 Features:
-  • Distributed key-value store with Raft-based replication
+  • Key-value store with versioning
   • Encrypted storage (AES-256-GCM) for secrets
   • Namespaces for isolation
   • Token-based authentication with scoped API keys
-  • Versioned configuration values
   • Watch API for live updates
   • HTTP/JSON protocol
 
 Example:
-  # Start single node
-  keyrafted --data-dir /data --listen :7331
+  # Start server
+  keyrafted start --data-dir /data --listen :7200
 
-  # Start multi-node cluster
-  keyrafted --data-dir /data1 --listen :7331 --node-id node1 --peers node2:7332,node3:7333`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+  # Initialize root token
+  keyrafted init --data-dir /data`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
@@ -42,9 +43,7 @@ func Execute() {
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.keyrafted.yaml)")
+	// Persistent flags
+	rootCmd.PersistentFlags().StringVar(&dataDir, "data-dir", "./data", "Data directory for storage")
+	rootCmd.PersistentFlags().StringVar(&listenAddr, "listen", ":7200", "HTTP listen address")
 }
