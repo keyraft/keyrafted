@@ -12,7 +12,7 @@ Keyraft stores configuration and secrets securely, manages versioning, and provi
 
 ---
 
-## Features (v0.1)
+## Features
 
 * ✅ Key-value store with versioning
 * ✅ Encrypted storage (AES-256-GCM) for secrets
@@ -24,38 +24,6 @@ Keyraft stores configuration and secrets securely, manages versioning, and provi
 * ✅ Prometheus metrics endpoint
 * ✅ Go SDK with caching and auto-reload
 
-Planned Features (v0.2+):
-
-* SSE/WebSocket streaming for watch updates
-* Role-based access control (RBAC)
-* Audit logging
-* Raft-based distributed clustering
-* Multi-region high availability
-* gRPC API support
-
----
-
-## Architecture
-
-Single-node architecture for v0.1 (clustering planned for v0.3):
-
-```
-       +------------------------+
-       |   Client / CLI / SDK   |
-       +-----------+------------+
-                   |
-                   v
-          +------------------+
-          |  Keyrafted Server |
-          |  HTTP API Layer   |
-          +--------+---------+
-                   |
-                   v
-          +------------------+
-          |  BoltDB Storage  |
-          +------------------+
-```
-
 ---
 
 ## Installation
@@ -63,11 +31,17 @@ Single-node architecture for v0.1 (clustering planned for v0.3):
 ### Using Docker (Recommended)
 
 ```bash
-docker pull keyraft/keyrafted:latest
 docker run -d -p 7200:7200 \
   -e KEYRAFT_MASTER_KEY=$(openssl rand -base64 32) \
   -v keyraft-data:/data \
   keyraft/keyrafted:latest
+```
+
+The container automatically initializes on first run. Get the root token from logs:
+
+```bash
+# View full logs (token appears after "Root token" message)
+docker logs <container-name>
 ```
 
 ### Using Install Script
@@ -98,40 +72,171 @@ sudo mv keyrafted-darwin-amd64 /usr/local/bin/keyrafted
 go install github.com/keyraft/keyrafted@latest
 ```
 
+---
+
 ## Quick Start
 
+### 1. Initialize Database
+
 ```bash
-# 1. Initialize
 keyrafted init --data-dir ./data
+```
 
-# 2. Start server
+**Output:**
+```
+✓ Keyraft initialized successfully!
+
+Root token (save this securely):
+  eyhQ3zLy6NdiMNwFJ-S3kS-GUA5RzI0p7ibnz-VI9jw=
+
+Use this token to authenticate API requests:
+  curl -H 'Authorization: Bearer eyhQ3zLy6NdiMNwFJ-S3kS-GUA5RzI0p7ibnz-VI9jw=' http://localhost:7200/v1/health
+```
+
+**Important:** Save the root token securely. You'll need it for all operations.
+
+### 2. Set Encryption Key
+
+```bash
+# Generate a secure key
 export KEYRAFT_MASTER_KEY=$(openssl rand -base64 32)
-keyrafted start --data-dir ./data
 
-# 3. Use the API
+# Or use your own (minimum 16 bytes)
+export KEYRAFT_MASTER_KEY="your-secure-key-here"
+```
+
+### 3. Start Server
+
+```bash
+keyrafted start --data-dir ./data --listen :7200
+```
+
+The server is now running on `http://localhost:7200`
+
+---
+
+## API Usage
+
+### Authentication
+
+All endpoints (except `/health` and `/metrics`) require Bearer token authentication:
+
+```http
+Authorization: Bearer YOUR_TOKEN_HERE
+```
+
+### Store Configuration
+
+```bash
+curl -X PUT http://localhost:7200/v1/kv/myapp/prod/DB_HOST \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"value":"localhost","type":"config"}'
+```
+
+### Store Secret (Encrypted)
+
+```bash
+curl -X PUT http://localhost:7200/v1/kv/myapp/prod/DB_PASSWORD \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"value":"secret123","type":"secret"}'
+```
+
+### Get Value
+
+```bash
+curl http://localhost:7200/v1/kv/myapp/prod/DB_HOST \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### List All Keys in Namespace
+
+```bash
+curl http://localhost:7200/v1/kv/myapp/prod \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### Get Specific Version
+
+```bash
+curl http://localhost:7200/v1/kv/myapp/prod/DB_HOST?version=2 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### Delete Key
+
+```bash
+curl -X DELETE http://localhost:7200/v1/kv/myapp/prod/DB_HOST \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### Watch for Changes
+
+```bash
+curl http://localhost:7200/v1/watch/myapp/prod?timeout=30s \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### Create Scoped Token
+
+```bash
+curl -X POST http://localhost:7200/v1/auth/token \
+  -H "Authorization: Bearer $ROOT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "scopes": [
+      {"namespace": "myapp/*", "read": true, "write": false}
+    ],
+    "expires_in": 2592000
+  }'
+```
+
+### Health Check
+
+```bash
 curl http://localhost:7200/v1/health
 ```
 
-**📖 See [Getting Started Guide](docs/getting-started.md) for detailed setup**
+**Response:**
+```json
+{
+  "status": "ok",
+  "time": "2025-12-20T10:00:00Z",
+  "version": "0.1.0"
+}
+```
 
 ---
 
 ## API Endpoints
 
-- `PUT /v1/kv/{namespace}/{key}` - Set value
-- `GET /v1/kv/{namespace}/{key}` - Get value
-- `GET /v1/kv/{namespace}` - List keys
-- `DELETE /v1/kv/{namespace}/{key}` - Delete key
-- `GET /v1/watch/{namespace}` - Watch changes
-- `POST /v1/auth/token` - Create token
-- `GET /v1/health` - Health check
-- `GET /v1/metrics` - Metrics
-
-See [API Reference](docs/api-reference.md) for complete documentation.
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `PUT` | `/v1/kv/{namespace}/{key}` | Set value |
+| `GET` | `/v1/kv/{namespace}/{key}` | Get value |
+| `GET` | `/v1/kv/{namespace}/{key}?version={n}` | Get specific version |
+| `GET` | `/v1/kv/{namespace}` | List keys in namespace |
+| `DELETE` | `/v1/kv/{namespace}/{key}` | Delete key |
+| `GET` | `/v1/watch/{namespace}?timeout={duration}` | Watch for changes |
+| `POST` | `/v1/auth/token` | Create token |
+| `GET` | `/v1/auth/tokens` | List tokens |
+| `DELETE` | `/v1/auth/token/{token}` | Revoke token |
+| `GET` | `/v1/namespaces` | List namespaces |
+| `GET` | `/v1/health` | Health check |
+| `GET` | `/v1/metrics` | Prometheus metrics |
 
 ---
 
 ## Go Client SDK
+
+### Installation
+
+```bash
+go get github.com/keyraft/keyrafted/pkg/client
+```
+
+### Basic Usage
 
 ```go
 import "keyrafted/pkg/client"
@@ -140,27 +245,127 @@ import "keyrafted/pkg/client"
 c := client.NewClient(client.Config{
     BaseURL: "http://localhost:7200",
     Token:   "your-token",
+    Timeout: 30 * time.Second,
 })
 
-// Set and get
-c.Set("myapp/prod", "DB_HOST", "localhost", nil)
-entry, _ := c.Get("myapp/prod", "DB_HOST")
+// Store configuration
+entry, err := c.Set("myapp/prod", "DB_HOST", "localhost", nil)
 
-// Cached client with auto-reload
-cached, _ := client.NewCachedClient(client.CacheConfig{
+// Store secret (encrypted)
+_, err = c.SetSecret("myapp/prod", "DB_PASSWORD", "secret123", nil)
+
+// Get value
+entry, err := c.Get("myapp/prod", "DB_HOST")
+fmt.Println(entry.Value)
+
+// List keys
+entries, err := c.List("myapp/prod")
+```
+
+### Cached Client (Auto-Reload)
+
+```go
+// Create base client
+c := client.NewClient(client.Config{
+    BaseURL: "http://localhost:7200",
+    Token:   "your-token",
+})
+
+// Create cached client with auto-reload
+cached, err := client.NewCachedClient(client.CacheConfig{
     Client:       c,
     Namespace:    "myapp/prod",
     PollInterval: 10 * time.Second,
 })
 defer cached.Close()
 
+// Fast reads from cache
+value, ok := cached.Get("DB_HOST")
+
 // Register callback for changes
 cached.OnChange(func(key, value string) {
-    // Handle config changes
+    fmt.Printf("Config changed: %s = %s\n", key, value)
+    // Reload your application configuration
 })
 ```
 
-**📖 See [Go Client Documentation](docs/go-client.md) for a complete guide**
+---
+
+## Docker Usage
+
+### Basic Run
+
+```bash
+docker run -d -p 7200:7200 \
+  -e KEYRAFT_MASTER_KEY=$(openssl rand -base64 32) \
+  -v keyraft-data:/data \
+  keyraft/keyrafted:latest
+```
+
+### Docker Compose
+
+```yaml
+version: '3.8'
+
+services:
+  keyraft:
+    image: keyraft/keyrafted:latest
+    ports:
+      - "7200:7200"
+    environment:
+      - KEYRAFT_MASTER_KEY=${KEYRAFT_MASTER_KEY}
+    volumes:
+      - keyraft-data:/data
+    restart: unless-stopped
+
+volumes:
+  keyraft-data:
+```
+
+### Get Root Token
+
+The container auto-initializes on first run. Get the root token:
+
+```bash
+# View full logs (token appears after "Root token" message)
+docker logs <container-name>
+```
+
+---
+
+## Configuration
+
+### Command Line Flags
+
+```bash
+keyrafted start \
+  --data-dir /var/lib/keyraft \     # Data directory
+  --listen :7200 \                   # Listen address
+  --master-key "key-value" \         # Master key (or use env var)
+  --master-key-file /path/to/key     # Master key file path
+```
+
+### Environment Variables
+
+- `KEYRAFT_MASTER_KEY` - Master encryption key for secrets (32+ bytes recommended)
+- `KEYRAFT_DATA_DIR` - Data directory path (overrides `--data-dir` flag)
+- `KEYRAFT_LISTEN` - HTTP listen address (overrides `--listen` flag)
+
+---
+
+## Namespace Format
+
+Pattern: `project/environment/service`
+
+**Examples:**
+- `billing`
+- `billing/prod`
+- `billing/prod/api`
+
+**Rules:**
+- Alphanumeric, hyphens, underscores
+- Maximum 3 levels
+- Maximum 256 characters
 
 ---
 
@@ -173,38 +378,10 @@ cached.OnChange(func(key, value string) {
 * **TLS recommended** for production deployments
 
 **⚠️ Important Security Notes:**
-- Always set a strong `KEYRAFT_MASTER_KEY` in production
+- Always set a strong `KEYRAFT_MASTER_KEY` in production (32+ bytes)
 - Store root token securely (password manager, vault, etc.)
 - Use scoped tokens for applications (principle of least privilege)
 - Enable TLS when exposing to untrusted networks
-
----
-
-## Development
-
-### Running Tests
-
-```bash
-# Unit tests
-go test ./tests/unit -v
-
-# Integration tests
-go test ./tests/integration -v
-
-# All tests with coverage
-go test ./tests/... -cover
-```
-
----
-
-## Documentation
-
-- **[Getting Started](docs/getting-started.md)** - Quick setup guide
-- **[API Reference](docs/api-reference.md)** - Complete API documentation  
-- **[Go Client SDK](docs/go-client.md)** - Go client library guide
-- **[Deployment Guide](docs/deployment.md)** - Production deployment
-- **[Docker Guide](docs/docker.md)** - Container deployment
-- **[Contributing](docs/CONTRIBUTING.md)** - How to contribute
 
 ---
 
@@ -216,24 +393,9 @@ go test ./tests/... -cover
 
 ---
 
-## Star History
-
-If you find Keyraft useful, please consider giving it a star ⭐
-
----
-
 ## License
 
 Apache License 2.0 - See [LICENSE](LICENSE) for details
-
----
-
-## Acknowledgments
-
-Inspired by:
-* [etcd](https://etcd.io/) - Distributed key-value store
-* [HashiCorp Vault](https://www.vaultproject.io/) - Secrets management
-* [Consul](https://www.consul.io/) - Service mesh and configuration
 
 ---
 

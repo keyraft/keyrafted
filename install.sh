@@ -118,9 +118,12 @@ verify_installation() {
         return
     fi
     
-    VERSION_OUTPUT=$("$BINARY_NAME" --version 2>&1 || "$BINARY_NAME" --help 2>&1 | head -1)
-    printf "%b✓ Installation verified%b\n" "$GREEN" "$NC" >&2
-    echo "$VERSION_OUTPUT" >&2
+    # Test that binary works by running help
+    if "$BINARY_NAME" --help >/dev/null 2>&1; then
+        printf "%b✓ Installation verified%b\n" "$GREEN" "$NC" >&2
+    else
+        printf "%bWarning: Binary installed but may not be working correctly%b\n" "$YELLOW" "$NC" >&2
+    fi
 }
 
 # Main installation
