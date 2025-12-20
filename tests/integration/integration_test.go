@@ -10,21 +10,13 @@ import (
 	"keyrafted/internal/storage"
 	"keyrafted/internal/watch"
 	"keyrafted/pkg/client"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
 )
 
 func TestStorageOperations(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "keyraft-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() {
-		_ = os.RemoveAll(tempDir)
-	}()
-
+	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test.db")
 	store := storage.NewBoltDBStorage(dbPath)
 
@@ -101,14 +93,7 @@ func TestStorageOperations(t *testing.T) {
 }
 
 func TestEncryptionIntegration(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "keyraft-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() {
-		_ = os.RemoveAll(tempDir)
-	}()
-
+	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test.db")
 	store := storage.NewBoltDBStorage(dbPath)
 
@@ -160,14 +145,7 @@ func TestEncryptionIntegration(t *testing.T) {
 }
 
 func TestAuthenticationFlow(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "keyraft-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() {
-		_ = os.RemoveAll(tempDir)
-	}()
-
+	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test.db")
 	store := storage.NewBoltDBStorage(dbPath)
 
@@ -230,14 +208,7 @@ func TestAuthenticationFlow(t *testing.T) {
 }
 
 func TestVersioning(t *testing.T) {
-	tempDir, err := os.MkdirTemp("", "keyraft-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() {
-		_ = os.RemoveAll(tempDir)
-	}()
-
+	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test.db")
 	store := storage.NewBoltDBStorage(dbPath)
 

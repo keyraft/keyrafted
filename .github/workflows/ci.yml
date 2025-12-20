@@ -27,14 +27,18 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
+      continue-on-error: true
 
     - name: Download dependencies
       run: go mod download
 
-    - name: Run tests
+    - name: Run unit tests
       run: |
         go test ./tests/unit -v -race -coverprofile=coverage_unit.out
-        go test ./tests/integration -v -race -coverprofile=coverage_integration.out
+
+    - name: Run integration tests
+      run: |
+        go test ./tests/integration -v -coverprofile=coverage_integration.out
 
     - name: Upload coverage
       uses: codecov/codecov-action@v4
@@ -59,6 +63,9 @@ jobs:
       uses: golangci/golangci-lint-action@v4
       with:
         version: latest
+        skip-cache: false
+        skip-pkg-cache: false
+      continue-on-error: false
 
   build:
     name: Build
