@@ -86,12 +86,17 @@ func (s *Server) handleSetKey(w http.ResponseWriter, r *http.Request) {
 	// Store the entry
 	entry, err := s.engine.Set(namespace, key, req.Value, entryType, req.Metadata)
 	if err != nil {
+		// Log failed operation
+		_ = s.audit.LogOperation(token.ID, "set", namespace, key, false, err.Error())
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	// Notify watchers
 	s.watch.NotifySet(entry)
+
+	// Log successful operation
+	_ = s.audit.LogOperation(token.ID, "set", namespace, key, true, "")
 
 	respondJSON(w, http.StatusOK, entry)
 }
@@ -144,6 +149,7 @@ func (s *Server) handleGetKey(w http.ResponseWriter, r *http.Request) {
 		}
 		entries, listErr := s.engine.List(fullNamespace)
 		if listErr == nil && len(entries) >= 0 {
+			_ = s.audit.LogOperation(token.ID, "list", fullNamespace, "", true, "")
 			respondJSON(w, http.StatusOK, map[string]interface{}{
 				"namespace": fullNamespace,
 				"keys":      entries,
@@ -151,9 +157,13 @@ func (s *Server) handleGetKey(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
+		_ = s.audit.LogOperation(token.ID, "get", namespace, key, false, "key not found")
 		respondError(w, http.StatusNotFound, "key not found")
 		return
 	}
+
+	// Log successful operation
+	_ = s.audit.LogOperation(token.ID, "get", namespace, key, true, "")
 
 	respondJSON(w, http.StatusOK, entry)
 }
@@ -178,12 +188,16 @@ func (s *Server) handleDeleteKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.engine.Delete(namespace, key); err != nil {
+		_ = s.audit.LogOperation(token.ID, "delete", namespace, key, false, err.Error())
 		respondError(w, http.StatusNotFound, "key not found")
 		return
 	}
 
 	// Notify watchers
 	s.watch.NotifyDelete(namespace, key)
+
+	// Log successful operation
+	_ = s.audit.LogOperation(token.ID, "delete", namespace, key, true, "")
 
 	respondJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
@@ -208,9 +222,13 @@ func (s *Server) handleListKeys(w http.ResponseWriter, r *http.Request) {
 
 	entries, err := s.engine.List(namespace)
 	if err != nil {
+		_ = s.audit.LogOperation(token.ID, "list", namespace, "", false, err.Error())
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	// Log successful operation
+	_ = s.audit.LogOperation(token.ID, "list", namespace, "", true, "")
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"namespace": namespace,
@@ -236,6 +254,9 @@ func (s *Server) handleWatch(w http.ResponseWriter, r *http.Request) {
 		respondError(w, http.StatusForbidden, "insufficient permissions")
 		return
 	}
+
+	// Log watch operation
+	_ = s.audit.LogOperation(token.ID, "watch", namespace, "", true, "")
 
 	// Check if SSE mode is requested
 	if r.URL.Query().Get("stream") == "true" || r.Header.Get("Accept") == "text/event-stream" {
@@ -283,7 +304,7 @@ func (s *Server) handleWatchSSE(w http.ResponseWriter, r *http.Request, namespac
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no") // Disable nginx buffering
+	w.Header().Set("X-Accel-Buffering", "no")          // Disable nginx buffering
 	w.Header().Set("Access-Control-Allow-Origin", "*") // Allow CORS for SSE
 
 	// Write status code before flushing
@@ -428,9 +449,13 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 
 	newToken, err := s.auth.GenerateToken(req.Scopes, expiresIn, req.Metadata)
 	if err != nil {
+		_ = s.audit.LogOperation(token.ID, "token_create", "", "", false, err.Error())
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	// Log successful operation
+	_ = s.audit.LogOperation(token.ID, "token_create", "", newToken.ID, true, "")
 
 	respondJSON(w, http.StatusOK, newToken)
 }
@@ -452,9 +477,13 @@ func (s *Server) handleListTokens(w http.ResponseWriter, r *http.Request) {
 
 	tokens, err := s.auth.ListTokens()
 	if err != nil {
+		_ = s.audit.LogOperation(token.ID, "token_list", "", "", false, err.Error())
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	// Log successful operation
+	_ = s.audit.LogOperation(token.ID, "token_list", "", "", true, "")
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"tokens": tokens,
@@ -481,9 +510,51 @@ func (s *Server) handleRevokeToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.auth.RevokeToken(tokenToRevoke); err != nil {
+		_ = s.audit.LogOperation(token.ID, "token_revoke", "", tokenToRevoke, false, err.Error())
 		respondError(w, http.StatusNotFound, "token not found")
 		return
 	}
 
+	// Log successful operation
+	_ = s.audit.LogOperation(token.ID, "token_revoke", "", tokenToRevoke, true, "")
+
 	respondJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
+}
+
+// handleGetAuditLogs retrieves audit logs
+func (s *Server) handleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
+	// Get token from context
+	token, err := auth.GetTokenFromContext(r.Context())
+	if err != nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	// Only root tokens can view audit logs
+	if !s.auth.HasAccess(token, "*", true) {
+		respondError(w, http.StatusForbidden, "insufficient permissions: audit logs require root access")
+		return
+	}
+
+	// Parse query parameters
+	namespace := r.URL.Query().Get("namespace")
+	limitStr := r.URL.Query().Get("limit")
+	limit := 100 // default limit
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	// Get audit logs
+	logs, err := s.audit.GetLogs(namespace, limit)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"logs":  logs,
+		"count": len(logs),
+	})
 }
