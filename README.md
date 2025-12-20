@@ -212,7 +212,7 @@ go test ./tests/... -cover
 
 - **Issues**: [GitHub Issues](https://github.com/keyraft/keyrafted/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/keyraft/keyrafted/discussions)
-- **Security**: Report vulnerabilities to security@keyraft.io
+- **Security**: Report vulnerabilities to xentixar@gmail.com
 
 ---
 
