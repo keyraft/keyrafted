@@ -47,5 +47,5 @@ USER keyraft
 
 # Use entrypoint script
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
-CMD ["--data-dir", "/data", "--listen", ":7200"]
+CMD ["--listen", ":7200"]
 

@@ -32,7 +32,7 @@ detect_platform() {
             BINARY_NAME="keyrafted.exe"
             ;;
         *)
-            echo "${RED}Unsupported operating system: $OS${NC}"
+            printf "%bUnsupported operating system: %s%b\n" "$RED" "$OS" "$NC" >&2
             exit 1
             ;;
     esac
@@ -45,7 +45,7 @@ detect_platform() {
             ARCH="arm64"
             ;;
         *)
-            echo "${RED}Unsupported architecture: $ARCH${NC}"
+            printf "%bUnsupported architecture: %s%b\n" "$RED" "$ARCH" "$NC" >&2
             exit 1
             ;;
     esac
@@ -56,11 +56,11 @@ get_latest_version() {
     VERSION=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
     
     if [ -z "$VERSION" ]; then
-        printf "%bFailed to get latest version%b\n" "$RED" "$NC"
+        printf "%bFailed to get latest version%b\n" "$RED" "$NC" >&2
         exit 1
     fi
     
-    printf "%bLatest version: %s%b\n" "$GREEN" "$VERSION" "$NC"
+    printf "%bLatest version: %s%b\n" "$GREEN" "$VERSION" "$NC" >&2
 }
 
 # Download binary
@@ -71,7 +71,7 @@ download_binary() {
         BINARY_URL="${BINARY_URL}.exe"
     fi
     
-    printf "%bDownloading from: %s%b\n" "$YELLOW" "$BINARY_URL" "$NC"
+    printf "%bDownloading from: %s%b\n" "$YELLOW" "$BINARY_URL" "$NC" >&2
     
     TMP_FILE=$(mktemp)
     
@@ -80,12 +80,12 @@ download_binary() {
     elif command -v wget >/dev/null 2>&1; then
         wget -q "$BINARY_URL" -O "$TMP_FILE"
     else
-        printf "%bError: curl or wget is required%b\n" "$RED" "$NC"
+        printf "%bError: curl or wget is required%b\n" "$RED" "$NC" >&2
         exit 1
     fi
     
     if [ ! -s "$TMP_FILE" ]; then
-        printf "%bFailed to download binary%b\n" "$RED" "$NC"
+        printf "%bFailed to download binary%b\n" "$RED" "$NC" >&2
         rm -f "$TMP_FILE"
         exit 1
     fi
@@ -103,32 +103,32 @@ install_binary() {
     if [ -w "$INSTALL_DIR" ]; then
         mv "$TMP_FILE" "$INSTALL_DIR/$BINARY_NAME"
     else
-        echo "${YELLOW}Installing to $INSTALL_DIR (requires sudo)${NC}"
+        printf "%bInstalling to %s (requires sudo)%b\n" "$YELLOW" "$INSTALL_DIR" "$NC" >&2
         sudo mv "$TMP_FILE" "$INSTALL_DIR/$BINARY_NAME"
     fi
     
-    echo "${GREEN}✓ Installed $BINARY_NAME to $INSTALL_DIR${NC}"
+    printf "%b✓ Installed %s to %s%b\n" "$GREEN" "$BINARY_NAME" "$INSTALL_DIR" "$NC" >&2
 }
 
 # Verify installation
 verify_installation() {
     if ! command -v "$BINARY_NAME" >/dev/null 2>&1; then
-        echo "${YELLOW}Warning: $BINARY_NAME not found in PATH${NC}"
-        echo "Add $INSTALL_DIR to your PATH or run: export PATH=\"$INSTALL_DIR:\$PATH\""
+        printf "%bWarning: %s not found in PATH%b\n" "$YELLOW" "$BINARY_NAME" "$NC" >&2
+        printf "Add %s to your PATH or run: export PATH=\"%s:\$PATH\"\n" "$INSTALL_DIR" "$INSTALL_DIR" >&2
         return
     fi
     
     VERSION_OUTPUT=$("$BINARY_NAME" --version 2>&1 || "$BINARY_NAME" --help 2>&1 | head -1)
-    echo "${GREEN}✓ Installation verified${NC}"
-    echo "$VERSION_OUTPUT"
+    printf "%b✓ Installation verified%b\n" "$GREEN" "$NC" >&2
+    echo "$VERSION_OUTPUT" >&2
 }
 
 # Main installation
 main() {
-    printf "%bKeyraft Installation Script%b\n\n" "$GREEN" "$NC"
+    printf "%bKeyraft Installation Script%b\n\n" "$GREEN" "$NC" >&2
     
     detect_platform
-    printf "Detected platform: %b%s/%s%b\n" "$YELLOW" "$OS" "$ARCH" "$NC"
+    printf "Detected platform: %b%s/%s%b\n" "$YELLOW" "$OS" "$ARCH" "$NC" >&2
     
     get_latest_version
     
@@ -138,12 +138,12 @@ main() {
     
     verify_installation
     
-    printf "\n%bInstallation complete!%b\n\n" "$GREEN" "$NC"
-    printf "Quick start:\n"
-    printf "  1. Initialize: %bkeyrafted init --data-dir ./data%b\n" "$YELLOW" "$NC"
-    printf "  2. Start:      %bexport KEYRAFT_MASTER_KEY=\$(openssl rand -base64 32)%b\n" "$YELLOW" "$NC"
-    printf "                 %bkeyrafted start --data-dir ./data%b\n" "$YELLOW" "$NC"
-    printf "\nDocumentation: %bhttps://github.com/%s%b\n" "$YELLOW" "$REPO" "$NC"
+    printf "\n%bInstallation complete!%b\n\n" "$GREEN" "$NC" >&2
+    printf "Quick start:\n" >&2
+    printf "  1. Initialize: %bkeyrafted init --data-dir ./data%b\n" "$YELLOW" "$NC" >&2
+    printf "  2. Start:      %bexport KEYRAFT_MASTER_KEY=\$(openssl rand -base64 32)%b\n" "$YELLOW" "$NC" >&2
+    printf "                 %bkeyrafted start --data-dir ./data%b\n" "$YELLOW" "$NC" >&2
+    printf "\nDocumentation: %bhttps://github.com/%s%b\n" "$YELLOW" "$REPO" "$NC" >&2
 }
 
 main
