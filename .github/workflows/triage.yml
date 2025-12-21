@@ -17,36 +17,53 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Check for good first issue
+      - name: Auto-label issues
         uses: actions/github-script@v7
         with:
           script: |
-            const title = '${{ github.event.issue.title || github.event.pull_request.title }}';
-            const body = '${{ github.event.issue.body || github.event.pull_request.body }}';
-            const text = (title + ' ' + body).toLowerCase();
+            const eventName = context.payload.action;
+            const isIssue = context.eventName === 'issues';
+            
+            if (!isIssue) {
+              console.log('Skipping triage for non-issue events');
+              return;
+            }
+            
+            const issue = context.payload.issue;
+            if (!issue) {
+              console.log('No issue found in payload');
+              return;
+            }
+            
+            const title = (issue.title || '').toLowerCase();
+            const body = (issue.body || '').toLowerCase();
+            const text = title + ' ' + body;
             
             // Auto-label based on keywords
             const labels = [];
-            if (text.includes('bug') || text.includes('error') || text.includes('fix')) {
+            if (text.includes('bug') || text.includes('error') || text.includes('fix') || text.includes('broken')) {
               labels.push('bug');
             }
-            if (text.includes('feature') || text.includes('enhancement') || text.includes('add')) {
+            if (text.includes('feature') || text.includes('enhancement') || text.includes('add') || text.includes('new')) {
               labels.push('enhancement');
             }
-            if (text.includes('doc') || text.includes('readme') || text.includes('documentation')) {
+            if (text.includes('doc') || text.includes('readme') || text.includes('documentation') || text.includes('docs')) {
               labels.push('documentation');
             }
-            if (text.includes('test') || text.includes('testing')) {
+            if (text.includes('test') || text.includes('testing') || text.includes('spec')) {
               labels.push('testing');
             }
             
             // Add labels
-            if (labels.length > 0 && '${{ github.event_name }}' === 'issues') {
+            if (labels.length > 0) {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: context.issue.number,
+                issue_number: issue.number,
                 labels: labels
               });
+              console.log(`Added labels: ${labels.join(', ')}`);
+            } else {
+              console.log('No matching labels found');
             }
 
