@@ -73,6 +73,10 @@ func (s *Server) setupRouter() {
 	// Audit log endpoints
 	api.HandleFunc("/audit", s.handleGetAuditLogs).Methods("GET")
 
+	// Role management endpoints
+	api.HandleFunc("/roles", s.handleListRoles).Methods("GET")
+	api.HandleFunc("/roles/{role}", s.handleGetRole).Methods("GET")
+
 	s.router = r
 }
 

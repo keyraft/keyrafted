@@ -180,7 +180,7 @@ func TestAuthenticationFlow(t *testing.T) {
 		{Namespace: "app/prod", Read: true, Write: false},
 	}
 
-	scopedToken, err := authSvc.GenerateToken(scopes, nil, nil)
+	scopedToken, err := authSvc.GenerateToken(scopes, "", nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to create scoped token: %v", err)
 	}
@@ -358,5 +358,333 @@ func TestSSEWatch(t *testing.T) {
 	watchMgr.NotifySet(entry)
 	if watchMgr.ActiveWatchers() != 0 {
 		t.Log("Watch manager is working")
+	}
+}
+
+func TestRBAC(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	store := storage.NewBoltDBStorage(dbPath)
+
+	if err := store.Open(); err != nil {
+		t.Fatalf("Failed to open storage: %v", err)
+	}
+	defer func() {
+		_ = store.Close()
+	}()
+
+	authSvc := auth.NewService(store)
+
+	// Create root token (admin role)
+	rootToken, err := authSvc.InitializeRootToken()
+	if err != nil {
+		t.Fatalf("Failed to create root token: %v", err)
+	}
+
+	validatedRoot, err := authSvc.ValidateToken(rootToken.Token)
+	if err != nil {
+		t.Fatalf("Failed to validate root token: %v", err)
+	}
+
+	// Root token should have admin role
+	if validatedRoot.Role != models.RoleAdmin {
+		t.Errorf("Expected root token to have admin role, got %s", validatedRoot.Role)
+	}
+
+	// Admin should have all permissions
+	if !authSvc.HasPermission(validatedRoot, models.PermissionRead) {
+		t.Error("Admin should have read permission")
+	}
+	if !authSvc.HasPermission(validatedRoot, models.PermissionWrite) {
+		t.Error("Admin should have write permission")
+	}
+	if !authSvc.HasPermission(validatedRoot, models.PermissionManageTokens) {
+		t.Error("Admin should have manage_tokens permission")
+	}
+	if !authSvc.HasPermission(validatedRoot, models.PermissionManageRoles) {
+		t.Error("Admin should have manage_roles permission")
+	}
+	if !authSvc.HasPermission(validatedRoot, models.PermissionViewAudit) {
+		t.Error("Admin should have view_audit permission")
+	}
+
+	// Test developer role
+	developerToken, err := authSvc.GenerateToken([]models.TokenScope{}, models.RoleDeveloper, nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to create developer token: %v", err)
+	}
+
+	validatedDev, err := authSvc.ValidateToken(developerToken.Token)
+	if err != nil {
+		t.Fatalf("Failed to validate developer token: %v", err)
+	}
+
+	if validatedDev.Role != models.RoleDeveloper {
+		t.Errorf("Expected developer role, got %s", validatedDev.Role)
+	}
+
+	// Developer should have read, write, delete
+	if !authSvc.HasPermission(validatedDev, models.PermissionRead) {
+		t.Error("Developer should have read permission")
+	}
+	if !authSvc.HasPermission(validatedDev, models.PermissionWrite) {
+		t.Error("Developer should have write permission")
+	}
+	if !authSvc.HasPermission(validatedDev, models.PermissionDelete) {
+		t.Error("Developer should have delete permission")
+	}
+
+	// Developer should NOT have admin permissions
+	if authSvc.HasPermission(validatedDev, models.PermissionManageTokens) {
+		t.Error("Developer should not have manage_tokens permission")
+	}
+	if authSvc.HasPermission(validatedDev, models.PermissionManageRoles) {
+		t.Error("Developer should not have manage_roles permission")
+	}
+
+	// Test viewer role
+	viewerToken, err := authSvc.GenerateToken([]models.TokenScope{}, models.RoleViewer, nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to create viewer token: %v", err)
+	}
+
+	validatedViewer, err := authSvc.ValidateToken(viewerToken.Token)
+	if err != nil {
+		t.Fatalf("Failed to validate viewer token: %v", err)
+	}
+
+	if validatedViewer.Role != models.RoleViewer {
+		t.Errorf("Expected viewer role, got %s", validatedViewer.Role)
+	}
+
+	// Viewer should only have read permission
+	if !authSvc.HasPermission(validatedViewer, models.PermissionRead) {
+		t.Error("Viewer should have read permission")
+	}
+	if authSvc.HasPermission(validatedViewer, models.PermissionWrite) {
+		t.Error("Viewer should not have write permission")
+	}
+	if authSvc.HasPermission(validatedViewer, models.PermissionDelete) {
+		t.Error("Viewer should not have delete permission")
+	}
+
+	// Test operator role
+	operatorToken, err := authSvc.GenerateToken([]models.TokenScope{}, models.RoleOperator, nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to create operator token: %v", err)
+	}
+
+	validatedOp, err := authSvc.ValidateToken(operatorToken.Token)
+	if err != nil {
+		t.Fatalf("Failed to validate operator token: %v", err)
+	}
+
+	if validatedOp.Role != models.RoleOperator {
+		t.Errorf("Expected operator role, got %s", validatedOp.Role)
+	}
+
+	// Operator should have read, write, delete, view_audit
+	if !authSvc.HasPermission(validatedOp, models.PermissionRead) {
+		t.Error("Operator should have read permission")
+	}
+	if !authSvc.HasPermission(validatedOp, models.PermissionWrite) {
+		t.Error("Operator should have write permission")
+	}
+	if !authSvc.HasPermission(validatedOp, models.PermissionDelete) {
+		t.Error("Operator should have delete permission")
+	}
+	if !authSvc.HasPermission(validatedOp, models.PermissionViewAudit) {
+		t.Error("Operator should have view_audit permission")
+	}
+
+	// Operator should NOT have manage permissions
+	if authSvc.HasPermission(validatedOp, models.PermissionManageTokens) {
+		t.Error("Operator should not have manage_tokens permission")
+	}
+	if authSvc.HasPermission(validatedOp, models.PermissionManageRoles) {
+		t.Error("Operator should not have manage_roles permission")
+	}
+
+	// Test invalid role
+	_, err = authSvc.GenerateToken([]models.TokenScope{}, "invalid_role", nil, nil)
+	if err == nil {
+		t.Error("Should fail when creating token with invalid role")
+	}
+
+	// Test backward compatibility: tokens with scopes should still work
+	scopes := []models.TokenScope{
+		{Namespace: "app/prod", Read: true, Write: false},
+	}
+	scopedToken, err := authSvc.GenerateToken(scopes, "", nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to create scoped token: %v", err)
+	}
+
+	validatedScoped, err := authSvc.ValidateToken(scopedToken.Token)
+	if err != nil {
+		t.Fatalf("Failed to validate scoped token: %v", err)
+	}
+
+	// Scoped token should work with HasAccess (backward compatibility)
+	if !authSvc.HasAccess(validatedScoped, "app/prod", false) {
+		t.Error("Scoped token should have read access to app/prod")
+	}
+	if authSvc.HasAccess(validatedScoped, "app/prod", true) {
+		t.Error("Scoped token should not have write access to app/prod")
+	}
+
+	// Test admin has full access regardless of namespace
+	if !authSvc.HasAccess(validatedRoot, "any/namespace", true) {
+		t.Error("Admin should have full access to any namespace")
+	}
+	if !authSvc.HasAccess(validatedRoot, "another/namespace", false) {
+		t.Error("Admin should have read access to any namespace")
+	}
+}
+
+func TestDefaultRoles(t *testing.T) {
+	roles := models.GetDefaultRoles()
+
+	// Check all expected roles exist
+	expectedRoles := []string{models.RoleAdmin, models.RoleDeveloper, models.RoleViewer, models.RoleOperator}
+	for _, roleName := range expectedRoles {
+		if _, exists := roles[roleName]; !exists {
+			t.Errorf("Expected role %s not found", roleName)
+		}
+	}
+
+	// Verify admin has all permissions
+	admin := roles[models.RoleAdmin]
+	allPermissions := []string{
+		models.PermissionRead,
+		models.PermissionWrite,
+		models.PermissionDelete,
+		models.PermissionManageTokens,
+		models.PermissionManageRoles,
+		models.PermissionViewAudit,
+		models.PermissionManageNamespaces,
+	}
+
+	for _, perm := range allPermissions {
+		found := false
+		for _, p := range admin.Permissions {
+			if p == perm {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Admin role missing permission: %s", perm)
+		}
+	}
+
+	// Verify viewer only has read
+	viewer := roles[models.RoleViewer]
+	if len(viewer.Permissions) != 1 || viewer.Permissions[0] != models.PermissionRead {
+		t.Errorf("Viewer should only have read permission, got %v", viewer.Permissions)
+	}
+}
+
+func TestWildcardScopeMatching(t *testing.T) {
+	tempDir := t.TempDir()
+	dbPath := filepath.Join(tempDir, "test.db")
+	store := storage.NewBoltDBStorage(dbPath)
+
+	if err := store.Open(); err != nil {
+		t.Fatalf("Failed to open storage: %v", err)
+	}
+	defer func() {
+		_ = store.Close()
+	}()
+
+	authSvc := auth.NewService(store)
+
+	// Initialize root token (required before creating other tokens)
+	_, err := authSvc.InitializeRootToken()
+	if err != nil {
+		t.Fatalf("Failed to create root token: %v", err)
+	}
+
+	// Create token with wildcard scope: myapp/*
+	scopes := []models.TokenScope{
+		{Namespace: "myapp/*", Read: true, Write: false},
+	}
+
+	wildcardToken, err := authSvc.GenerateToken(scopes, "", nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to create wildcard token: %v", err)
+	}
+
+	validated, err := authSvc.ValidateToken(wildcardToken.Token)
+	if err != nil {
+		t.Fatalf("Failed to validate token: %v", err)
+	}
+
+	// Test cases: myapp/* should match various myapp namespaces
+	testCases := []struct {
+		namespace string
+		write     bool
+		expected  bool
+		desc      string
+	}{
+		{"myapp/prod", false, true, "read access to myapp/prod"},
+		{"myapp/dev", false, true, "read access to myapp/dev"},
+		{"myapp/prod/api", false, true, "read access to myapp/prod/api"},
+		{"myapp", false, true, "read access to myapp"},
+		{"myapp/prod", true, false, "write access to myapp/prod (should be false)"},
+		{"myappx/prod", false, false, "read access to myappx/prod (should not match)"},
+		{"other/prod", false, false, "read access to other/prod (should not match)"},
+		{"myappx", false, false, "read access to myappx (should not match)"},
+	}
+
+	for _, tc := range testCases {
+		result := authSvc.HasAccess(validated, tc.namespace, tc.write)
+		if result != tc.expected {
+			t.Errorf("%s: expected %v, got %v", tc.desc, tc.expected, result)
+		}
+	}
+
+	// Test write access with wildcard
+	writeScopes := []models.TokenScope{
+		{Namespace: "myapp/*", Read: true, Write: true},
+	}
+
+	writeToken, err := authSvc.GenerateToken(writeScopes, "", nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to create write wildcard token: %v", err)
+	}
+
+	validatedWrite, err := authSvc.ValidateToken(writeToken.Token)
+	if err != nil {
+		t.Fatalf("Failed to validate write token: %v", err)
+	}
+
+	// Should have write access
+	if !authSvc.HasAccess(validatedWrite, "myapp/prod", true) {
+		t.Error("Wildcard token with write=true should have write access")
+	}
+
+	// Test global wildcard
+	globalScopes := []models.TokenScope{
+		{Namespace: "*", Read: true, Write: false},
+	}
+
+	globalToken, err := authSvc.GenerateToken(globalScopes, "", nil, nil)
+	if err != nil {
+		t.Fatalf("Failed to create global wildcard token: %v", err)
+	}
+
+	validatedGlobal, err := authSvc.ValidateToken(globalToken.Token)
+	if err != nil {
+		t.Fatalf("Failed to validate global token: %v", err)
+	}
+
+	// Global wildcard should match everything
+	if !authSvc.HasAccess(validatedGlobal, "any/namespace", false) {
+		t.Error("Global wildcard (*) should match any namespace")
+	}
+
+	if !authSvc.HasAccess(validatedGlobal, "completely/different/namespace", false) {
+		t.Error("Global wildcard (*) should match any namespace")
 	}
 }

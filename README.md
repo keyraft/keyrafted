@@ -17,7 +17,7 @@ Keyraft stores configuration and secrets securely, manages versioning, and provi
 * ✅ Key-value store with versioning
 * ✅ Encrypted storage (AES-256-GCM) for secrets
 * ✅ Namespaces for isolation (`project/environment/service`)
-* ✅ Token-based authentication with scoped API keys
+* ✅ Token-based authentication with role-based access control (RBAC)
 * ✅ Historical version tracking
 * ✅ Watch API for live updates (SSE streaming + long-polling)
 * ✅ HTTP/JSON protocol
@@ -203,7 +203,32 @@ event: change
 data: {"action":"delete","namespace":"myapp/prod","key":"OLD_KEY","timestamp":"2025-12-20T10:02:00Z"}
 ```
 
-### Create Scoped Token
+### Create Token (Role-Based or Scoped)
+
+**Option 1: Role-Based Access Control (RBAC) - Recommended**
+
+```bash
+# Create a developer token with read/write access
+curl -X POST http://localhost:7200/v1/auth/token \
+  -H "Authorization: Bearer $ROOT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "role": "developer",
+    "expires_in": 2592000,
+    "metadata": {
+      "name": "myapp-service",
+      "description": "Token for myapp service"
+    }
+  }'
+```
+
+**Available Roles:**
+- `admin` - Full access to all resources (manage tokens, roles, audit logs)
+- `developer` - Read, write, and delete in assigned namespaces
+- `viewer` - Read-only access to assigned namespaces
+- `operator` - Read, write, delete, and view audit logs in assigned namespaces
+
+**Option 2: Legacy Scoped Access (Backward Compatible)**
 
 ```bash
 curl -X POST http://localhost:7200/v1/auth/token \
@@ -215,6 +240,49 @@ curl -X POST http://localhost:7200/v1/auth/token \
     ],
     "expires_in": 2592000
   }'
+```
+
+### List Roles
+
+```bash
+curl http://localhost:7200/v1/roles \
+  -H "Authorization: Bearer $ROOT_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "roles": [
+    {
+      "name": "admin",
+      "description": "Full access to all resources",
+      "permissions": ["read", "write", "delete", "manage_tokens", "manage_roles", "view_audit", "manage_namespaces"]
+    },
+    {
+      "name": "developer",
+      "description": "Can read and write config/secrets in assigned namespaces",
+      "permissions": ["read", "write", "delete"]
+    },
+    {
+      "name": "viewer",
+      "description": "Read-only access to assigned namespaces",
+      "permissions": ["read"]
+    },
+    {
+      "name": "operator",
+      "description": "Can read, write, and view audit logs in assigned namespaces",
+      "permissions": ["read", "write", "delete", "view_audit"]
+    }
+  ],
+  "count": 4
+}
+```
+
+### Get Role Details
+
+```bash
+curl http://localhost:7200/v1/roles/developer \
+  -H "Authorization: Bearer $ROOT_TOKEN"
 ```
 
 ### Health Check
@@ -232,6 +300,39 @@ curl http://localhost:7200/v1/health
 }
 ```
 
+### Audit Logs
+
+```bash
+curl http://localhost:7200/v1/audit \
+  -H "Authorization: Bearer $ROOT_TOKEN"
+```
+
+**Response:**
+```json
+{
+    "count": 2,
+    "logs": [
+        {
+            "id": "20251220213751-97845c4e",
+            "timestamp": "2025-12-20T21:37:51.288081105+05:45",
+            "token_id": "654ed1e577243bf224d8de6a8896ac8b",
+            "action": "set",
+            "namespace": "billing/prod",
+            "key": "HOST",
+            "success": true
+        },
+        {
+            "id": "20251220213500-309b90ae",
+            "timestamp": "2025-12-20T21:35:00.477208308+05:45",
+            "token_id": "654ed1e577243bf224d8de6a8896ac8b",
+            "action": "get",
+            "namespace": "billing/prod",
+            "key": "HOST",
+            "success": true
+        }
+    ]
+}
+```
 ---
 
 ## API Endpoints
@@ -245,9 +346,12 @@ curl http://localhost:7200/v1/health
 | `DELETE` | `/v1/kv/{namespace}/{key}` | Delete key |
 | `GET` | `/v1/watch/{namespace}?timeout={duration}` | Watch for changes (long-poll) |
 | `GET` | `/v1/watch/{namespace}?stream=true` | Watch for changes (SSE stream) |
-| `POST` | `/v1/auth/token` | Create token |
+| `POST` | `/v1/auth/token` | Create token (role-based or scoped) |
 | `GET` | `/v1/auth/tokens` | List tokens |
 | `DELETE` | `/v1/auth/token/{token}` | Revoke token |
+| `GET` | `/v1/roles` | List all roles |
+| `GET` | `/v1/roles/{role}` | Get role details |
+| `GET` | `/v1/audit` | Get audit logs |
 | `GET` | `/v1/namespaces` | List namespaces |
 | `GET` | `/v1/health` | Health check |
 | `GET` | `/v1/metrics` | Prometheus metrics |
@@ -418,7 +522,7 @@ Pattern: `project/environment/service`
 ## Security
 
 * **Secrets encrypted at rest** with AES-256-GCM
-* **Token-based authentication** with scoped access control
+* **Token-based authentication** with role-based access control (RBAC) and scoped access
 * **Namespace isolation** prevents unauthorized access
 * **Version tracking** maintains a full audit trail
 * **TLS recommended** for production deployments
@@ -426,7 +530,8 @@ Pattern: `project/environment/service`
 **⚠️ Important Security Notes:**
 - Always set a strong `KEYRAFT_MASTER_KEY` in production (32+ bytes)
 - Store root token securely (password manager, vault, etc.)
-- Use scoped tokens for applications (principle of least privilege)
+- Use role-based tokens for applications (principle of least privilege)
+- Prefer RBAC roles over legacy scopes for new tokens
 - Enable TLS when exposing to untrusted networks
 
 ---

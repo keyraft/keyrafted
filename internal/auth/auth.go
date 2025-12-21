@@ -31,7 +31,8 @@ func NewService(storage storage.Storage) *Service {
 }
 
 // GenerateToken creates a new authentication token
-func (s *Service) GenerateToken(scopes []models.TokenScope, expiresIn *time.Duration, metadata map[string]string) (*models.Token, error) {
+// If role is provided, it uses RBAC. Otherwise, it falls back to scopes (backward compatibility)
+func (s *Service) GenerateToken(scopes []models.TokenScope, role string, expiresIn *time.Duration, metadata map[string]string) (*models.Token, error) {
 	tokenStr, err := crypto.GenerateToken(32)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
@@ -42,10 +43,19 @@ func (s *Service) GenerateToken(scopes []models.TokenScope, expiresIn *time.Dura
 		return nil, fmt.Errorf("failed to generate ID: %w", err)
 	}
 
+	// Validate role if provided
+	if role != "" {
+		defaultRoles := models.GetDefaultRoles()
+		if _, exists := defaultRoles[role]; !exists {
+			return nil, fmt.Errorf("invalid role: %s", role)
+		}
+	}
+
 	token := &models.Token{
 		ID:        id,
 		Token:     tokenStr,
 		Scopes:    scopes,
+		Role:      role,
 		CreatedAt: time.Now(),
 		Metadata:  metadata,
 	}
@@ -78,13 +88,30 @@ func (s *Service) ValidateToken(tokenStr string) (*models.Token, error) {
 }
 
 // HasAccess checks if a token has the required access to a namespace
+// Supports both RBAC (role-based) and legacy scope-based access
 func (s *Service) HasAccess(token *models.Token, namespace string, write bool) bool {
-	// Root token (empty scopes) has access to everything
-	if len(token.Scopes) == 0 {
+	// Root token (empty scopes and no role) has access to everything
+	if len(token.Scopes) == 0 && token.Role == "" {
 		return true
 	}
 
-	// Check each scope
+	// RBAC: Check role-based permissions first
+	if token.Role != "" {
+		// Admin role has full access
+		if token.Role == models.RoleAdmin {
+			return true
+		}
+
+		// Check if role has required permission
+		requiredPermission := models.PermissionRead
+		if write {
+			requiredPermission = models.PermissionWrite
+		}
+
+		return s.HasPermission(token, requiredPermission)
+	}
+
+	// Legacy: Check scopes (backward compatibility)
 	for _, scope := range token.Scopes {
 		// Wildcard match
 		if scope.Namespace == "*" {
@@ -111,6 +138,34 @@ func (s *Service) HasAccess(token *models.Token, namespace string, write bool) b
 				}
 				return scope.Read
 			}
+		}
+	}
+
+	return false
+}
+
+// HasPermission checks if a token has a specific permission based on its role
+func (s *Service) HasPermission(token *models.Token, permission string) bool {
+	if token.Role == "" {
+		return false
+	}
+
+	// Admin has all permissions
+	if token.Role == models.RoleAdmin {
+		return true
+	}
+
+	// Get role permissions
+	defaultRoles := models.GetDefaultRoles()
+	role, exists := defaultRoles[token.Role]
+	if !exists {
+		return false
+	}
+
+	// Check if role has the permission
+	for _, perm := range role.Permissions {
+		if perm == permission {
+			return true
 		}
 	}
 
@@ -178,8 +233,8 @@ func (s *Service) InitializeRootToken() (*models.Token, error) {
 		return nil, fmt.Errorf("tokens already exist")
 	}
 
-	// Create root token with full access (empty scopes = full access)
-	rootToken, err := s.GenerateToken([]models.TokenScope{}, nil, map[string]string{
+	// Create root token with admin role (full access)
+	rootToken, err := s.GenerateToken([]models.TokenScope{}, models.RoleAdmin, nil, map[string]string{
 		"name": "root",
 		"type": "root",
 	})
