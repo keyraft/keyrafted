@@ -53,10 +53,12 @@ func (s *Server) setupRouter() {
 	api.Use(s.auth.Middleware)
 
 	// KV endpoints
+	// List route must come first to handle namespaces with slashes (e.g., "myapp/prod")
+	// Get/Set/Delete routes come after for operations on specific keys
+	api.HandleFunc("/kv/{namespace:.+}", s.handleListKeys).Methods("GET")
 	api.HandleFunc("/kv/{namespace:.+}/{key:[^/]+}", s.handleSetKey).Methods("PUT")
 	api.HandleFunc("/kv/{namespace:.+}/{key:[^/]+}", s.handleDeleteKey).Methods("DELETE")
 	api.HandleFunc("/kv/{namespace:.+}/{key:[^/]+}", s.handleGetKey).Methods("GET")
-	api.HandleFunc("/kv/{namespace:.+}", s.handleListKeys).Methods("GET")
 
 	// Watch endpoint
 	api.HandleFunc("/watch/{namespace:.+}", s.handleWatch).Methods("GET")

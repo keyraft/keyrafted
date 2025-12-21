@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -200,7 +201,43 @@ func (s *Server) handleListKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check read permission
+	path := r.URL.Path
+	kvPrefix := "/v1/kv/"
+	if !strings.HasPrefix(path, kvPrefix) {
+		respondError(w, http.StatusBadRequest, "invalid path")
+		return
+	}
+
+	relativePath := strings.TrimPrefix(path, kvPrefix)
+	pathSegments := strings.Split(relativePath, "/")
+
+	// If path has 3+ segments, it's definitely a key request, not a namespace list
+	// Example: /v1/kv/myapp/prod/DATABASE_URL
+	// Try to get key "DATABASE_URL" in namespace "myapp/prod"
+	if len(pathSegments) >= 3 {
+		potentialNamespace := strings.Join(pathSegments[:len(pathSegments)-1], "/")
+		potentialKey := pathSegments[len(pathSegments)-1]
+
+		// Check if we have access to the potential namespace
+		if s.auth.HasAccess(token, potentialNamespace, false) {
+			// Try to get the key - if it exists, handle it as a get request
+			entry, err := s.engine.Get(potentialNamespace, potentialKey)
+			if err == nil && entry != nil {
+				// Key exists, handle it as a get request
+				_ = s.audit.LogOperation(token.ID, "get", potentialNamespace, potentialKey, true, "")
+				respondJSON(w, http.StatusOK, entry)
+				return
+			}
+			// Key doesn't exist - this is a get request, so return 404
+			respondError(w, http.StatusNotFound, "key not found")
+			return
+		}
+		// No access to namespace - return 404 (don't reveal namespace existence)
+		respondError(w, http.StatusNotFound, "key not found")
+		return
+	}
+
+	// Check read permission for the namespace
 	if !s.auth.HasAccess(token, namespace, false) {
 		respondError(w, http.StatusForbidden, "insufficient permissions")
 		return
