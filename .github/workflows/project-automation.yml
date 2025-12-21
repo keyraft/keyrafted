@@ -17,8 +17,42 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Add issue/PR to project
-        uses: actions/add-to-project@v1.0.1
+      - name: Add issue/PR to project using GraphQL
+        uses: actions/github-script@v7
         with:
-          project-url: https://github.com/orgs/keyraft/projects/1
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const projectId = 'PVT_kwDODu3omc4BLDgl';
+            const itemId = context.payload.issue?.node_id || context.payload.pull_request?.node_id;
+            
+            if (!itemId) {
+              console.log('No issue or PR found in payload');
+              return;
+            }
+            
+            // Add item to project
+            const mutation = `
+              mutation($projectId: ID!, $itemId: ID!) {
+                addProjectV2ItemById(input: {projectId: $projectId, contentId: $itemId}) {
+                  item {
+                    id
+                  }
+                }
+              }
+            `;
+            
+            try {
+              const result = await github.graphql(mutation, {
+                projectId: projectId,
+                itemId: itemId
+              });
+              
+              console.log(`Successfully added item to project: ${result.addProjectV2ItemById.item.id}`);
+            } catch (error) {
+              // Item might already be in project, check if it's a duplicate error
+              if (error.message && error.message.includes('already exists')) {
+                console.log('Item is already in the project');
+              } else {
+                console.error('Error adding item to project:', error.message);
+                throw error;
+              }
+            }
