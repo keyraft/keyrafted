@@ -48,11 +48,11 @@ jobs:
               
               console.log(`Successfully added item to project: ${result.addProjectV2ItemById.item.id}`);
             } catch (error) {
-              // Item might already be in project, check if it's a duplicate error
-              if (error.message && error.message.includes('already exists')) {
+              // Item might already be in project
+              if (error.message && (error.message.includes('already exists') || error.message.includes('already added'))) {
                 console.log('Item is already in the project');
               } else {
                 console.error('Error adding item to project:', error.message);
-                throw error;
+                // Don't throw - allow workflow to continue even if project add fails
               }
             }
