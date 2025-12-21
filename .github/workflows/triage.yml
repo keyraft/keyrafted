@@ -1,0 +1,52 @@
+name: Triage Automation
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
+jobs:
+  triage:
+    name: Auto Triage
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check for good first issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '${{ github.event.issue.title || github.event.pull_request.title }}';
+            const body = '${{ github.event.issue.body || github.event.pull_request.body }}';
+            const text = (title + ' ' + body).toLowerCase();
+            
+            // Auto-label based on keywords
+            const labels = [];
+            if (text.includes('bug') || text.includes('error') || text.includes('fix')) {
+              labels.push('bug');
+            }
+            if (text.includes('feature') || text.includes('enhancement') || text.includes('add')) {
+              labels.push('enhancement');
+            }
+            if (text.includes('doc') || text.includes('readme') || text.includes('documentation')) {
+              labels.push('documentation');
+            }
+            if (text.includes('test') || text.includes('testing')) {
+              labels.push('testing');
+            }
+            
+            // Add labels
+            if (labels.length > 0 && '${{ github.event_name }}' === 'issues') {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: labels
+              });
+            }
+
