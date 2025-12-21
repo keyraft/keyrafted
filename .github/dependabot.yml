@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # Enable version updates for Go modules
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"  # Check for updates every Monday
+    open-pull-requests-limit: 10  # Maximum 10 open PRs at once
+    labels:
+      - "dependencies"
+      - "go"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    reviewers:
+      - "xentixar"
+    assignees:
+      - "xentixar"
+
