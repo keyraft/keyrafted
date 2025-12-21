@@ -50,7 +50,8 @@ type Namespace struct {
 type Token struct {
 	ID        string            `json:"id"`
 	Token     string            `json:"token"`
-	Scopes    []TokenScope      `json:"scopes"`
+	Scopes    []TokenScope      `json:"scopes,omitempty"` // Legacy: for backward compatibility
+	Role      string            `json:"role,omitempty"`     // RBAC: role name (admin, developer, viewer, operator)
 	CreatedAt time.Time         `json:"created_at"`
 	ExpiresAt *time.Time        `json:"expires_at,omitempty"`
 	Metadata  map[string]string `json:"metadata,omitempty"`
@@ -73,6 +74,77 @@ type AuditLogEntry struct {
 	Key       string    `json:"key,omitempty"`
 	Success   bool      `json:"success"`
 	Error     string    `json:"error,omitempty"`
+}
+
+// Role represents a role in the RBAC system
+type Role struct {
+	Name        string   `json:"name"`
+	Permissions []string `json:"permissions"`
+	Description string   `json:"description,omitempty"`
+}
+
+// Permission constants
+const (
+	PermissionRead        = "read"
+	PermissionWrite       = "write"
+	PermissionDelete      = "delete"
+	PermissionManageTokens = "manage_tokens"
+	PermissionManageRoles  = "manage_roles"
+	PermissionViewAudit    = "view_audit"
+	PermissionManageNamespaces = "manage_namespaces"
+)
+
+// Role constants
+const (
+	RoleAdmin     = "admin"
+	RoleDeveloper = "developer"
+	RoleViewer    = "viewer"
+	RoleOperator  = "operator"
+)
+
+// GetDefaultRoles returns the default roles with their permissions
+func GetDefaultRoles() map[string]*Role {
+	return map[string]*Role{
+		RoleAdmin: {
+			Name:        RoleAdmin,
+			Description: "Full access to all resources",
+			Permissions: []string{
+				PermissionRead,
+				PermissionWrite,
+				PermissionDelete,
+				PermissionManageTokens,
+				PermissionManageRoles,
+				PermissionViewAudit,
+				PermissionManageNamespaces,
+			},
+		},
+		RoleDeveloper: {
+			Name:        RoleDeveloper,
+			Description: "Can read and write config/secrets in assigned namespaces",
+			Permissions: []string{
+				PermissionRead,
+				PermissionWrite,
+				PermissionDelete,
+			},
+		},
+		RoleViewer: {
+			Name:        RoleViewer,
+			Description: "Read-only access to assigned namespaces",
+			Permissions: []string{
+				PermissionRead,
+			},
+		},
+		RoleOperator: {
+			Name:        RoleOperator,
+			Description: "Can read, write, and view audit logs in assigned namespaces",
+			Permissions: []string{
+				PermissionRead,
+				PermissionWrite,
+				PermissionDelete,
+				PermissionViewAudit,
+			},
+		},
+	}
 }
 
 // ValidateNamespace validates namespace format: project/environment/service

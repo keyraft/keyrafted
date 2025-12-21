@@ -142,21 +142,7 @@ func (s *Server) handleGetKey(w http.ResponseWriter, r *http.Request) {
 	// Get latest version
 	entry, err := s.engine.Get(namespace, key)
 	if err != nil {
-		// If key not found, try treating the whole path as namespace for listing
-		fullNamespace := namespace
-		if key != "" {
-			fullNamespace = namespace + "/" + key
-		}
-		entries, listErr := s.engine.List(fullNamespace)
-		if listErr == nil && len(entries) >= 0 {
-			_ = s.audit.LogOperation(token.ID, "list", fullNamespace, "", true, "")
-			respondJSON(w, http.StatusOK, map[string]interface{}{
-				"namespace": fullNamespace,
-				"keys":      entries,
-				"count":     len(entries),
-			})
-			return
-		}
+		// Key not found - return 404
 		_ = s.audit.LogOperation(token.ID, "get", namespace, key, false, "key not found")
 		respondError(w, http.StatusNotFound, "key not found")
 		return
@@ -417,15 +403,16 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only root tokens can create new tokens
-	if len(token.Scopes) > 0 {
-		respondError(w, http.StatusForbidden, "only root tokens can create new tokens")
+	// Only admin/root tokens can create new tokens
+	if !s.auth.HasPermission(token, models.PermissionManageTokens) {
+		respondError(w, http.StatusForbidden, "insufficient permissions: manage_tokens required")
 		return
 	}
 
 	// Parse request body
 	var req struct {
-		Scopes    []models.TokenScope `json:"scopes"`
+		Scopes    []models.TokenScope `json:"scopes,omitempty"`     // Legacy: for backward compatibility
+		Role      string              `json:"role,omitempty"`       // RBAC: role name
 		ExpiresIn *int64              `json:"expires_in,omitempty"` // seconds
 		Metadata  map[string]string   `json:"metadata,omitempty"`
 	}
@@ -441,13 +428,23 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate: must provide either role or scopes (not both, not neither)
+	if req.Role != "" && len(req.Scopes) > 0 {
+		respondError(w, http.StatusBadRequest, "cannot specify both role and scopes")
+		return
+	}
+	if req.Role == "" && len(req.Scopes) == 0 {
+		respondError(w, http.StatusBadRequest, "must specify either role or scopes")
+		return
+	}
+
 	var expiresIn *time.Duration
 	if req.ExpiresIn != nil {
 		duration := time.Duration(*req.ExpiresIn) * time.Second
 		expiresIn = &duration
 	}
 
-	newToken, err := s.auth.GenerateToken(req.Scopes, expiresIn, req.Metadata)
+	newToken, err := s.auth.GenerateToken(req.Scopes, req.Role, expiresIn, req.Metadata)
 	if err != nil {
 		_ = s.audit.LogOperation(token.ID, "token_create", "", "", false, err.Error())
 		respondError(w, http.StatusInternalServerError, err.Error())
@@ -469,9 +466,15 @@ func (s *Server) handleListTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only root tokens can list tokens
-	if len(token.Scopes) > 0 {
-		respondError(w, http.StatusForbidden, "only root tokens can list tokens")
+	// Check permission
+	if !s.auth.HasPermission(token, models.PermissionManageTokens) {
+		respondError(w, http.StatusForbidden, "insufficient permissions: manage_tokens required")
+		return
+	}
+
+	// Check permission
+	if !s.auth.HasPermission(token, models.PermissionManageTokens) {
+		respondError(w, http.StatusForbidden, "insufficient permissions: manage_tokens required")
 		return
 	}
 
@@ -503,9 +506,9 @@ func (s *Server) handleRevokeToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only root tokens can revoke tokens
-	if len(token.Scopes) > 0 {
-		respondError(w, http.StatusForbidden, "only root tokens can revoke tokens")
+	// Check permission
+	if !s.auth.HasPermission(token, models.PermissionManageTokens) {
+		respondError(w, http.StatusForbidden, "insufficient permissions: manage_tokens required")
 		return
 	}
 
@@ -530,9 +533,9 @@ func (s *Server) handleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only root tokens can view audit logs
-	if !s.auth.HasAccess(token, "*", true) {
-		respondError(w, http.StatusForbidden, "insufficient permissions: audit logs require root access")
+	// Check permission
+	if !s.auth.HasPermission(token, models.PermissionViewAudit) {
+		respondError(w, http.StatusForbidden, "insufficient permissions: view_audit required")
 		return
 	}
 
@@ -557,4 +560,59 @@ func (s *Server) handleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
 		"logs":  logs,
 		"count": len(logs),
 	})
+}
+
+// handleListRoles lists all available roles
+func (s *Server) handleListRoles(w http.ResponseWriter, r *http.Request) {
+	// Get token from context
+	token, err := auth.GetTokenFromContext(r.Context())
+	if err != nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	// Check permission
+	if !s.auth.HasPermission(token, models.PermissionManageRoles) {
+		respondError(w, http.StatusForbidden, "insufficient permissions: manage_roles required")
+		return
+	}
+
+	roles := models.GetDefaultRoles()
+	roleList := make([]*models.Role, 0, len(roles))
+	for _, role := range roles {
+		roleList = append(roleList, role)
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"roles": roleList,
+		"count": len(roleList),
+	})
+}
+
+// handleGetRole retrieves details of a specific role
+func (s *Server) handleGetRole(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	roleName := vars["role"]
+
+	// Get token from context
+	token, err := auth.GetTokenFromContext(r.Context())
+	if err != nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	// Check permission
+	if !s.auth.HasPermission(token, models.PermissionManageRoles) {
+		respondError(w, http.StatusForbidden, "insufficient permissions: manage_roles required")
+		return
+	}
+
+	roles := models.GetDefaultRoles()
+	role, exists := roles[roleName]
+	if !exists {
+		respondError(w, http.StatusNotFound, "role not found")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, role)
 }
