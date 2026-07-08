@@ -125,6 +125,9 @@
     state.currentNs = null;
     state.selectedKey = null;
     sessionStorage.removeItem(TOKEN_KEY);
+    document.body.classList.remove("nav-open");
+    const overlay = $("#nav-overlay");
+    if (overlay) overlay.hidden = true;
     showLogin();
   }
 
@@ -853,7 +856,30 @@
       if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) $("#login-btn").click();
     });
     $("#logout-btn").addEventListener("click", logout);
-    $$(".nav-item").forEach((b) => b.addEventListener("click", () => setPanel(b.dataset.nav)));
+    const navToggle = $("#nav-toggle");
+    const navOverlay = $("#nav-overlay");
+    function closeNav() {
+      document.body.classList.remove("nav-open");
+      if (navToggle) navToggle.setAttribute("aria-expanded", "false");
+      if (navOverlay) navOverlay.hidden = true;
+    }
+    function openNav() {
+      document.body.classList.add("nav-open");
+      if (navToggle) navToggle.setAttribute("aria-expanded", "true");
+      if (navOverlay) navOverlay.hidden = false;
+    }
+    navToggle?.addEventListener("click", () => {
+      if (document.body.classList.contains("nav-open")) closeNav();
+      else openNav();
+    });
+    navOverlay?.addEventListener("click", closeNav);
+    $$(".nav-item").forEach((b) => b.addEventListener("click", () => {
+      setPanel(b.dataset.nav);
+      closeNav();
+    }));
+    window.addEventListener("resize", () => {
+      if (window.innerWidth > 900) closeNav();
+    });
     window.addEventListener("popstate", () => {
       if (!state.token) return;
       applyRoute(false).catch((e) => toast(e.message));
@@ -870,7 +896,9 @@
       if (!$("#ns-ctx-menu").contains(e.target)) hideNsContextMenu();
     });
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") hideNsContextMenu();
+      if (e.key !== "Escape") return;
+      closeNav();
+      hideNsContextMenu();
     });
     $("#key-filter").addEventListener("input", renderKeys);
     $("#secret-form").addEventListener("submit", saveSecret);

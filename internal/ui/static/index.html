@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Keyraft</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/ui/static/style.css?v=12" />
+  <link rel="stylesheet" href="/ui/static/style.css?v=14" />
   <link rel="icon" href="/ui/static/logo.png" type="image/png" />
   <script>
     // Avoid login flash on refresh when a session token already exists
@@ -52,9 +52,12 @@
   <section id="main-view" class="app hidden">
     <header class="topbar">
       <div class="topbar-left">
+        <button id="nav-toggle" class="nav-toggle" type="button" aria-label="Open menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
         <div class="topbar-logo">
           <img src="/ui/static/logo.png" alt="" width="28" height="23" />
-          Keyraft
+          <span class="topbar-brand">Keyraft</span>
         </div>
         <div id="breadcrumbs" class="breadcrumbs"></div>
       </div>
@@ -68,7 +71,8 @@
     </header>
 
     <div class="app-body">
-      <nav class="sidenav">
+      <div id="nav-overlay" class="nav-overlay" hidden></div>
+      <nav id="sidenav" class="sidenav">
         <div class="nav-group">
           <div class="nav-section">Secrets</div>
           <button data-nav="secrets" class="nav-item active">
@@ -331,6 +335,6 @@
   <div id="ns-ctx-menu" class="ctx-menu hidden" role="menu">
     <button type="button" class="ctx-item ctx-danger" id="ns-ctx-delete">Delete namespace</button>
   </div>
-  <script src="/ui/static/app.js?v=9"></script>
+  <script src="/ui/static/app.js?v=10"></script>
 </body>
 </html>
