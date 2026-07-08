@@ -13,8 +13,11 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build binary
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o keyrafted .
+# Build binary; VERSION defaults to package value when unset at runtime of ldflags inject
+ARG VERSION=0.3.0
+RUN CGO_ENABLED=0 GOOS=linux go build \
+  -ldflags="-s -w -X keyrafted/internal/version.Version=${VERSION}" \
+  -o keyrafted .
 
 # Runtime stage
 FROM alpine:latest
