@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/ui/static/style.css?v=5" />
+  <link rel="stylesheet" href="/ui/static/style.css?v=9" />
   <script>
     // Avoid login flash on refresh when a session token already exists
     try {
@@ -65,24 +65,30 @@
 
     <div class="app-body">
       <nav class="sidenav">
-        <div class="nav-section">Secrets</div>
-        <button data-nav="secrets" class="nav-item active">
-          <svg class="nav-icon"><use href="#icon-key"/></svg> KV Store
-        </button>
-        <div class="nav-section">Access</div>
-        <button data-nav="tokens" class="nav-item admin-only hidden">
-          <svg class="nav-icon"><use href="#icon-users"/></svg> Tokens
-        </button>
-        <button data-nav="roles" class="nav-item roles-only hidden">
-          <svg class="nav-icon"><use href="#icon-shield"/></svg> Roles
-        </button>
-        <div class="nav-section">Monitoring</div>
-        <button data-nav="audit" class="nav-item audit-only hidden">
-          <svg class="nav-icon"><use href="#icon-list"/></svg> Audit Log
-        </button>
-        <button data-nav="watch" class="nav-item">
-          <svg class="nav-icon"><use href="#icon-radar"/></svg> Live Watch
-        </button>
+        <div class="nav-group">
+          <div class="nav-section">Secrets</div>
+          <button data-nav="secrets" class="nav-item active">
+            <svg class="nav-icon"><use href="#icon-key"/></svg> KV Store
+          </button>
+        </div>
+        <div class="nav-group">
+          <div class="nav-section">Access</div>
+          <button data-nav="tokens" class="nav-item admin-only hidden">
+            <svg class="nav-icon"><use href="#icon-users"/></svg> Tokens
+          </button>
+          <button data-nav="roles" class="nav-item roles-only hidden">
+            <svg class="nav-icon"><use href="#icon-shield"/></svg> Roles
+          </button>
+        </div>
+        <div class="nav-group">
+          <div class="nav-section">Monitoring</div>
+          <button data-nav="audit" class="nav-item audit-only hidden">
+            <svg class="nav-icon"><use href="#icon-list"/></svg> Audit Log
+          </button>
+          <button data-nav="watch" class="nav-item">
+            <svg class="nav-icon"><use href="#icon-radar"/></svg> Live Watch
+          </button>
+        </div>
       </nav>
 
       <main class="main-content">
@@ -321,6 +327,6 @@
   <div id="ns-ctx-menu" class="ctx-menu hidden" role="menu">
     <button type="button" class="ctx-item ctx-danger" id="ns-ctx-delete">Delete namespace</button>
   </div>
-  <script src="/ui/static/app.js?v=7"></script>
+  <script src="/ui/static/app.js?v=8"></script>
 </body>
 </html>

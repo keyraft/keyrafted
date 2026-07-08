@@ -361,7 +361,10 @@ html.has-session #main-view { display: flex !important; }
 .modal-body { padding: 0; display: flex; flex-direction: column; gap: 0.85rem; }
 .modal-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
 .modal-header h3 { margin: 0; font-size: 16px; }
-.modal-body > :not(.modal-header):not(.modal-footer) { padding: 0 1.25rem; }
+.modal-body > :not(.modal-header):not(.modal-footer):not(.token-reveal) {
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
 .modal-footer { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 1rem 1.25rem; border-top: 1px solid var(--border); margin-top: 0.25rem; }
 .token-mode { display: flex; gap: 1rem; font-size: 13px; }
 .token-mode label { display: flex; align-items: center; gap: 0.35rem; cursor: pointer; color: var(--text-muted); }
@@ -369,9 +372,24 @@ html.has-session #main-view { display: flex !important; }
 #token-scope-fields { display: flex; flex-direction: column; gap: 0.85rem; }
 #token-role-fields .field-label:not(:first-child) { padding-top: 0.25rem; }
 .scope-check { display: flex; align-items: center; gap: 0.35rem; font-size: 13px; color: var(--text-muted); }
-.token-reveal { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.85rem; margin: 0 1.25rem; }
-.warning-text { margin: 0 0 0.5rem; font-size: 12px; color: var(--warning); }
-.token-value { display: block; word-break: break-all; color: var(--success); margin-bottom: 0.5rem; font-size: 12px; }
+#token-created.token-reveal {
+  margin: 0.25rem 1.25rem 0.5rem;
+  padding: 1.15rem 1.15rem;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  box-sizing: border-box;
+}
+.warning-text { margin: 0; font-size: 12px; color: var(--warning); line-height: 1.4; }
+.token-value {
+  display: block; margin: 0; padding: 0.65rem 0.75rem;
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
+  word-break: break-all; color: var(--success); font-size: 12px; line-height: 1.45;
+}
+#token-created .btn { align-self: flex-start; }
 
 /* Toast */
 .toast {

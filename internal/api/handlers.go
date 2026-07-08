@@ -9,6 +9,7 @@ import (
 	"keyrafted/internal/models"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -443,10 +444,9 @@ func (s *Server) writeSSEEvent(w http.ResponseWriter, eventType string, data int
 	}
 }
 
-// handleListNamespaces lists all namespaces
+// handleListNamespaces lists namespaces the caller can read
 func (s *Server) handleListNamespaces(w http.ResponseWriter, r *http.Request) {
-	// Get token from context
-	_, err := auth.GetTokenFromContext(r.Context())
+	token, err := auth.GetTokenFromContext(r.Context())
 	if err != nil {
 		respondError(w, http.StatusUnauthorized, "unauthorized")
 		return
@@ -458,9 +458,16 @@ func (s *Server) handleListNamespaces(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	allowed := make([]*models.Namespace, 0, len(namespaces))
+	for _, ns := range namespaces {
+		if s.auth.HasAccess(token, ns.Name, false) {
+			allowed = append(allowed, ns)
+		}
+	}
+
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"namespaces": namespaces,
-		"count":      len(namespaces),
+		"namespaces": allowed,
+		"count":      len(allowed),
 	})
 }
 
@@ -757,6 +764,21 @@ func (s *Server) handleListRoles(w http.ResponseWriter, r *http.Request) {
 	for _, role := range roles {
 		roleList = append(roleList, role)
 	}
+	// Map iteration order is random — keep a stable display order
+	order := map[string]int{
+		models.RoleAdmin:     0,
+		models.RoleDeveloper: 1,
+		models.RoleOperator:  2,
+		models.RoleViewer:    3,
+	}
+	sort.Slice(roleList, func(i, j int) bool {
+		ai, aOk := order[roleList[i].Name]
+		aj, bOk := order[roleList[j].Name]
+		if aOk && bOk {
+			return ai < aj
+		}
+		return roleList[i].Name < roleList[j].Name
+	})
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"roles": roleList,

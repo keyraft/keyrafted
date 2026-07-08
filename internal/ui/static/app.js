@@ -95,6 +95,10 @@
     $$(".admin-only").forEach((el) => el.classList.toggle("hidden", !state.me?.can_manage_tokens));
     $$(".audit-only").forEach((el) => el.classList.toggle("hidden", !state.me?.can_view_audit));
     $$(".roles-only").forEach((el) => el.classList.toggle("hidden", !state.me?.can_manage_roles));
+    $$(".nav-group").forEach((group) => {
+      const visible = [...group.querySelectorAll(".nav-item")].some((el) => !el.classList.contains("hidden"));
+      group.classList.toggle("hidden", !visible);
+    });
     pollHealth();
     setInterval(pollHealth, 30000);
   }
