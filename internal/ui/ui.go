@@ -35,6 +35,7 @@ func Handler() http.Handler {
 			u := *r.URL
 			u.Path = strings.TrimPrefix(path, "/ui/static")
 			r2.URL = &u
+			w.Header().Set("Cache-Control", "no-cache")
 			fileServer.ServeHTTP(w, &r2)
 		default:
 			http.NotFound(w, r)

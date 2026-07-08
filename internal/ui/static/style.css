@@ -84,10 +84,12 @@ body {
   background-color: var(--input-bg-hover);
 }
 .input:disabled { opacity: 0.55; cursor: not-allowed; }
-.input-sm { max-width: 220px; padding: 0.4rem 0.6rem; font-size: 12px; }
+.input-sm { padding: 0.4rem 0.6rem; font-size: 12px; }
 textarea.input { resize: vertical; min-height: 80px; }
 
 select.input {
+  width: 200px;
+  max-width: 100%;
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -97,17 +99,15 @@ select.input {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5 6 8 9.5 4.5' stroke='%23a2a9b4' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.7rem center;
-  background-size: 12px;
+  background-size: 12px 12px;
 }
-select.input:hover:not(:focus):not(:disabled) {
-  background-color: var(--input-bg-hover);
-}
+select.input:hover:not(:focus):not(:disabled) { background-color: var(--input-bg-hover); }
 select.input:focus {
   background-color: var(--input-bg-hover);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5 6 8 9.5 4.5' stroke='%233d7fff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.7rem center;
-  background-size: 12px;
+  background-size: 12px 12px;
 }
 select.input option {
   background: var(--surface);
@@ -196,7 +196,15 @@ input[type="number"].input::-webkit-inner-spin-button { -webkit-appearance: none
 .page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1.25rem; }
 .page-header h2 { margin: 0; font-size: 1.25rem; font-weight: 600; }
 .subtitle { margin: 0.2rem 0 0; color: var(--text-muted); font-size: 13px; }
-.page-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.page-actions {
+  display: flex; gap: 0.5rem; align-items: center;
+  flex-wrap: nowrap; flex-shrink: 0;
+}
+.page-actions .input,
+.page-actions select.input {
+  width: 200px;
+  flex: 0 0 200px;
+}
 .row-between { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; }
