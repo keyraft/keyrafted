@@ -63,7 +63,7 @@ jobs:
       # v2.4+ required for Go 1.25; action v8+ for golangci-lint v2
       uses: golangci/golangci-lint-action@v8
       with:
-        version: v2.4
+        version: v2.12
       continue-on-error: false
 
   build:

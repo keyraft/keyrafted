@@ -103,59 +103,6 @@ func (s *Server) handleSetKey(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, entry)
 }
 
-// handleGetKey retrieves a key or lists keys if no key specified
-func (s *Server) handleGetKey(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	namespace := vars["namespace"]
-	key := vars["key"]
-
-	// Get token from context
-	token, err := auth.GetTokenFromContext(r.Context())
-	if err != nil {
-		respondError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	// Check read permission
-	if !s.auth.HasAccess(token, namespace, false) {
-		respondError(w, http.StatusForbidden, "insufficient permissions")
-		return
-	}
-
-	// Check for version parameter
-	versionStr := r.URL.Query().Get("version")
-	if versionStr != "" {
-		version, err := strconv.ParseInt(versionStr, 10, 64)
-		if err != nil {
-			respondError(w, http.StatusBadRequest, "invalid version parameter")
-			return
-		}
-
-		ver, err := s.engine.GetVersion(namespace, key, version)
-		if err != nil {
-			respondError(w, http.StatusNotFound, "version not found")
-			return
-		}
-
-		respondJSON(w, http.StatusOK, ver)
-		return
-	}
-
-	// Get latest version
-	entry, err := s.engine.Get(namespace, key)
-	if err != nil {
-		// Key not found - return 404
-		_ = s.audit.LogOperation(token.ID, "get", namespace, key, false, "key not found")
-		respondError(w, http.StatusNotFound, "key not found")
-		return
-	}
-
-	// Log successful operation
-	_ = s.audit.LogOperation(token.ID, "get", namespace, key, true, "")
-
-	respondJSON(w, http.StatusOK, entry)
-}
-
 // handleListVersions lists all versions of a key
 func (s *Server) handleListVersions(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
