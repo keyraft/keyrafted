@@ -142,7 +142,7 @@
   }
 
   function updateBreadcrumbs() {
-    const parts = ["Keyraft"];
+    const parts = [];
     if (state.panel === "secrets") {
       parts.push("KV");
       if (state.currentNs) parts.push(state.currentNs);

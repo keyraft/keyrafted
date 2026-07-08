@@ -9,8 +9,9 @@
   --text: #f0f2f5;
   --text-muted: #a2a9b4;
   --text-dim: #6d7580;
-  --primary: #1563ff;
-  --primary-hover: #3d7fff;
+  --primary: #2b7fff;
+  --primary-hover: #4d91ff;
+  --primary-soft: rgba(43, 127, 255, 0.12);
   --accent: #00b2a0;
   --accent-soft: rgba(0, 178, 160, 0.15);
   --warning: #fddd35;
@@ -105,7 +106,7 @@ select.input {
 select.input:hover:not(:focus):not(:disabled) { background-color: var(--input-bg-hover); }
 select.input:focus {
   background-color: var(--input-bg-hover);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5 6 8 9.5 4.5' stroke='%233d7fff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5 6 8 9.5 4.5' stroke='%232b7fff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.7rem center;
   background-size: 12px 12px;
@@ -136,15 +137,13 @@ html.has-session #main-view { display: flex !important; }
 .login-view {
   min-height: 100vh; display: grid; place-items: center;
   background: var(--black);
-  background-image: radial-gradient(ellipse at 50% 0%, rgba(21, 99, 255, 0.12), transparent 60%);
+  background-image: radial-gradient(ellipse at 50% 0%, rgba(43, 127, 255, 0.14), transparent 60%);
 }
 .login-wrap { width: min(400px, calc(100vw - 2rem)); }
 .login-brand { text-align: center; margin-bottom: 2rem; }
-.vault-logo {
-  width: 56px; height: 56px; margin: 0 auto 1rem;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
-  border-radius: 8px; display: grid; place-items: center;
-  font-size: 28px; font-weight: 700; color: #fff;
+.brand-logo {
+  display: block; width: 72px; height: auto; margin: 0 auto 1rem;
+  object-fit: contain;
 }
 .login-brand h1 { margin: 0 0 0.35rem; font-size: 1.5rem; font-weight: 600; }
 .login-brand p { margin: 0; color: var(--text-muted); font-size: 14px; }
@@ -160,7 +159,14 @@ html.has-session #main-view { display: flex !important; }
   padding: 0 1rem; flex-shrink: 0;
 }
 .topbar-left { display: flex; align-items: center; gap: 1.25rem; min-width: 0; }
-.topbar-logo { font-weight: 700; font-size: 15px; color: var(--warning); letter-spacing: -0.02em; white-space: nowrap; }
+.topbar-logo {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-weight: 700; font-size: 15px; color: var(--text);
+  letter-spacing: -0.02em; white-space: nowrap;
+}
+.topbar-logo img {
+  width: 28px; height: 28px; object-fit: contain; display: block; flex-shrink: 0;
+}
 .breadcrumbs { display: flex; align-items: center; gap: 0.35rem; font-size: 13px; color: var(--text-muted); overflow: hidden; }
 .breadcrumbs span { color: var(--text-dim); }
 .breadcrumbs strong { color: var(--text); font-weight: 500; }
@@ -191,7 +197,7 @@ html.has-session #main-view { display: flex !important; }
   border-left: 3px solid transparent;
 }
 .nav-item:hover { background: rgba(255,255,255,0.04); color: var(--text); }
-.nav-item.active { background: rgba(21, 99, 255, 0.1); color: var(--text); border-left-color: var(--primary); font-weight: 500; }
+.nav-item.active { background: var(--primary-soft); color: var(--text); border-left-color: var(--primary); font-weight: 500; }
 .nav-icon { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.75; }
 .nav-item.active .nav-icon { opacity: 1; color: var(--primary); }
 
@@ -299,7 +305,7 @@ html.has-session #main-view { display: flex !important; }
   display: inline-block; padding: 0.15rem 0.45rem; border-radius: 2px;
   font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
 }
-.badge.config { background: rgba(21, 99, 255, 0.15); color: #6ba3ff; }
+.badge.config { background: rgba(43, 127, 255, 0.15); color: #6ba3ff; }
 .badge.secret { background: rgba(245, 166, 35, 0.15); color: var(--secret); }
 .badge.ok { background: rgba(46, 176, 57, 0.15); color: var(--success); }
 .badge.fail { background: rgba(226, 76, 76, 0.15); color: var(--danger); }
