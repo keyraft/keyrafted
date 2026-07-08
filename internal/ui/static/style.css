@@ -255,7 +255,14 @@ input[type="number"].input::-webkit-inner-spin-button { -webkit-appearance: none
 .ctx-item.ctx-danger:hover { background: rgba(248, 81, 73, 0.12); }
 
 .path-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); display: block; margin-bottom: 0.15rem; }
-.path-code { font-size: 13px; color: var(--accent); word-break: break-all; }
+.path-code {
+  font-size: 13px; color: var(--accent);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: block; max-width: 100%;
+}
+.keys-header { align-items: flex-end; min-width: 0; }
+.keys-header .path-block { flex: 1; min-width: 0; }
+.keys-header .keys-filter { flex: 0 0 200px; width: 200px; }
 
 /* Tables */
 .table-container { overflow-x: auto; }

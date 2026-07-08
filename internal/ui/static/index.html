@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/ui/static/style.css?v=2" />
+  <link rel="stylesheet" href="/ui/static/style.css?v=3" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
@@ -99,12 +99,12 @@
             </aside>
             <section class="secrets-main">
               <div id="keys-view" class="card">
-                <div class="card-header row-between">
-                  <div>
+                <div class="card-header row-between keys-header">
+                  <div class="path-block">
                     <span class="path-label">Path</span>
                     <code id="current-path" class="path-code">—</code>
                   </div>
-                  <input id="key-filter" class="input input-sm" type="search" placeholder="Filter keys…" disabled />
+                  <input id="key-filter" class="input input-sm keys-filter" type="search" placeholder="Filter keys…" disabled />
                 </div>
                 <div class="table-container">
                   <table class="data-table">
@@ -313,6 +313,6 @@
   <div id="ns-ctx-menu" class="ctx-menu hidden" role="menu">
     <button type="button" class="ctx-item ctx-danger" id="ns-ctx-delete">Delete namespace</button>
   </div>
-  <script src="/ui/static/app.js"></script>
+  <script src="/ui/static/app.js?v=5"></script>
 </body>
 </html>

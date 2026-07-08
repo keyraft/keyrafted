@@ -177,8 +177,44 @@ func (s *Service) HasPermission(token *models.Token, permission string) bool {
 	return false
 }
 
-// RevokeToken removes a token
+// IsRootToken reports whether a token has unrestricted root/admin access.
+func IsRootToken(token *models.Token) bool {
+	if token == nil {
+		return false
+	}
+	if token.Metadata != nil && token.Metadata["type"] == "root" {
+		return true
+	}
+	if token.Role == models.RoleAdmin {
+		return true
+	}
+	// Legacy bootstrap: empty role + empty scopes
+	return token.Role == "" && len(token.Scopes) == 0
+}
+
+// RevokeToken removes a token. Refuses if it is the last root/admin token.
 func (s *Service) RevokeToken(tokenStr string) error {
+	target, err := s.storage.GetToken(tokenStr)
+	if err != nil {
+		return fmt.Errorf("token not found")
+	}
+
+	if IsRootToken(target) {
+		tokens, err := s.storage.ListTokens()
+		if err != nil {
+			return err
+		}
+		rootCount := 0
+		for _, t := range tokens {
+			if IsRootToken(t) {
+				rootCount++
+			}
+		}
+		if rootCount <= 1 {
+			return fmt.Errorf("cannot revoke the last root token")
+		}
+	}
+
 	return s.storage.DeleteToken(tokenStr)
 }
 

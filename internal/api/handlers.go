@@ -280,8 +280,11 @@ func (s *Server) handleListKeys(w http.ResponseWriter, r *http.Request) {
 				respondJSON(w, http.StatusOK, entry)
 				return
 			}
-			// Explicit key path (3+ segments or key-shaped name) → 404 if missing
-			if len(pathSegments) >= 3 || looksLikeKeyName(potentialKey) {
+
+			// Full path is itself a namespace → list, don't 404 as missing key
+			if _, nsErr := s.engine.GetNamespace(relativePath); nsErr == nil {
+				// fall through to list below
+			} else if looksLikeKeyName(potentialKey) {
 				_ = s.audit.LogOperation(token.ID, "get", potentialNamespace, potentialKey, false, "key not found")
 				respondError(w, http.StatusNotFound, "key not found")
 				return
@@ -662,7 +665,14 @@ func (s *Server) handleRevokeToken(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.auth.RevokeToken(tokenToRevoke); err != nil {
 		_ = s.audit.LogOperation(token.ID, "token_revoke", "", tokenToRevoke, false, err.Error())
-		respondError(w, http.StatusNotFound, "token not found")
+		msg := err.Error()
+		status := http.StatusNotFound
+		if strings.Contains(msg, "last root token") {
+			status = http.StatusForbidden
+		} else if msg != "token not found" {
+			status = http.StatusInternalServerError
+		}
+		respondError(w, status, msg)
 		return
 	}
 

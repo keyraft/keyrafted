@@ -103,8 +103,13 @@
     state.me = await api("/v1/auth/me");
     sessionStorage.setItem(TOKEN_KEY, state.token);
     showMain();
-    await loadNamespaces();
-    updateBreadcrumbs();
+    try {
+      await applyRoute(false);
+    } catch (err) {
+      toast(err.message);
+      showPanel("secrets");
+      await loadNamespaces().catch(() => {});
+    }
   }
 
   function logout() {
@@ -182,23 +187,44 @@
     if (ul.childNodes.length) tree.appendChild(ul);
   }
 
-  async function loadNamespaces() {
+  async function loadNamespaces({ preserveUrl = false } = {}) {
     const data = await api("/v1/namespaces");
     state.namespaces = data.namespaces || [];
     renderNamespaceTree();
     populateWatchSelect();
-    if (state.currentNs && state.namespaces.some((n) => n.name === state.currentNs)) {
-      await loadKeys(state.currentNs);
-    } else if (state.namespaces.length) {
-      await selectNamespace(state.namespaces[0].name);
-    } else {
-      state.currentNs = null;
-      state.keys = [];
-      renderKeys();
+
+    const route = parseRoute();
+    const { ns: urlNs, key: urlKey } = route.panel === "secrets"
+      ? resolveKvRest(route.kvRest, state.namespaces)
+      : { ns: null, key: null };
+
+    if (urlNs && state.namespaces.some((n) => n.name === urlNs)) {
+      await selectNamespace(urlNs, { push: false, sync: !preserveUrl });
+      if (urlKey) {
+        try { await openDetail(urlKey, { push: false, sync: !preserveUrl }); }
+        catch { toast(`Key not found: ${urlKey}`); syncUrl(false); }
+      }
+      return;
     }
+
+    if (state.currentNs && state.namespaces.some((n) => n.name === state.currentNs)) {
+      await selectNamespace(state.currentNs, { push: false });
+      return;
+    }
+
+    if (state.namespaces.length) {
+      await selectNamespace(state.namespaces[0].name, { push: false });
+      return;
+    }
+
+    state.currentNs = null;
+    state.selectedKey = null;
+    state.keys = [];
+    renderKeys();
+    syncUrl(false);
   }
 
-  async function selectNamespace(name) {
+  async function selectNamespace(name, { push = true, sync = true } = {}) {
     state.currentNs = name;
     state.selectedKey = null;
     state.detailEntry = null;
@@ -208,13 +234,27 @@
     $("#current-path").textContent = name;
     $("#key-filter").disabled = false;
     updateBreadcrumbs();
+    if (sync) syncUrl(push);
     await loadKeys(name);
   }
 
   async function loadKeys(ns) {
-    const data = await api(kvBase(ns));
-    state.keys = data.keys || [];
-    renderKeys();
+    try {
+      const data = await api(kvBase(ns));
+      // List responses have keys[]; a mistaken key-get has key/value at top level
+      if (data && Array.isArray(data.keys)) {
+        state.keys = data.keys;
+      } else if (data && data.key !== undefined) {
+        state.keys = [data];
+      } else {
+        state.keys = [];
+      }
+      renderKeys();
+    } catch (err) {
+      state.keys = [];
+      renderKeys();
+      throw err;
+    }
   }
 
   function renderKeys() {
@@ -248,7 +288,7 @@
   }
 
   // ── Detail view ──────────────────────────────────────────────────
-  async function openDetail(key) {
+  async function openDetail(key, { push = true, sync = true } = {}) {
     state.selectedKey = key;
     state.secretRevealed = false;
     state.viewingVersion = null;
@@ -269,6 +309,7 @@
     await loadVersions();
     switchTab("current");
     updateBreadcrumbs();
+    if (sync) syncUrl(push);
   }
 
   function closeDetail() {
@@ -277,6 +318,7 @@
     $("#detail-view").classList.add("hidden");
     $("#keys-view").classList.remove("hidden");
     updateBreadcrumbs();
+    syncUrl(true);
   }
 
   function renderDetailValue() {
@@ -448,6 +490,7 @@
           $("#keys-view").classList.remove("hidden");
         }
         await loadNamespaces();
+        syncUrl(false);
       }
     );
   }
@@ -457,6 +500,7 @@
     if (!state.me?.can_manage_tokens) return;
     const data = await api("/v1/auth/tokens");
     const tokens = data.tokens || [];
+    const rootCount = tokens.filter(isRootTokenRow).length;
     const tbody = $("#tokens-tbody");
     tbody.innerHTML = "";
     $("#tokens-empty").classList.toggle("hidden", tokens.length > 0);
@@ -464,6 +508,7 @@
       const tr = document.createElement("tr");
       tr.className = "no-hover";
       const name = t.metadata?.name || "—";
+      const lastRoot = isRootTokenRow(t) && rootCount <= 1;
       tr.innerHTML = `
         <td>${esc(name)}</td>
         <td><span class="badge config">${esc(t.role || "scoped")}</span></td>
@@ -471,9 +516,18 @@
         <td>${fmtTime(t.created_at)}</td>
         <td>${t.expires_at ? fmtTime(t.expires_at) : "never"}</td>
         <td class="actions-cell"></td>`;
-      tr.lastElementChild.appendChild(btn("Revoke", "btn-danger btn-sm", () => confirmRevoke(t)));
+      const revokeBtn = btn("Revoke", "btn-danger btn-sm", () => confirmRevoke(t));
+      if (lastRoot) {
+        revokeBtn.disabled = true;
+        revokeBtn.title = "Cannot revoke the last root token";
+      }
+      tr.lastElementChild.appendChild(revokeBtn);
       tbody.appendChild(tr);
     }
+  }
+
+  function isRootTokenRow(t) {
+    return t.metadata?.type === "root" || t.role === "admin" || (!t.role && !(t.scopes || []).length);
   }
 
   function openTokenModal() {
@@ -666,15 +720,108 @@
     $("#confirm-modal").showModal();
   }
 
-  // ── Navigation ───────────────────────────────────────────────────
-  async function setPanel(name) {
+  // ── Navigation (path URLs survive refresh) ───────────────────────
+  const PANEL_PATH = {
+    secrets: "/ui/kv",
+    tokens: "/ui/tokens",
+    roles: "/ui/roles",
+    audit: "/ui/audit",
+    watch: "/ui/watch",
+  };
+  const PATH_PANEL = Object.fromEntries(Object.entries(PANEL_PATH).map(([k, v]) => [v, k]));
+
+  function parseRoute() {
+    const path = (location.pathname.replace(/\/$/, "") || "/") || "/";
+    if (path === "/" || path === "/ui") return { panel: "secrets", kvRest: "" };
+    if (path === "/ui/kv" || path.startsWith("/ui/kv/")) {
+      return {
+        panel: "secrets",
+        kvRest: path === "/ui/kv" ? "" : path.slice("/ui/kv/".length),
+      };
+    }
+    return { panel: PATH_PANEL[path] || "secrets", kvRest: "" };
+  }
+
+  // Match longest known namespace; leftover single segment becomes the key
+  function resolveKvRest(rest, namespaces) {
+    if (!rest) return { ns: null, key: null };
+    const decoded = rest.split("/").map((s) => {
+      try { return decodeURIComponent(s); } catch { return s; }
+    }).join("/");
+    const names = (namespaces || []).map((n) => n.name).sort((a, b) => b.length - a.length);
+    for (const name of names) {
+      if (decoded === name) return { ns: name, key: null };
+      if (decoded.startsWith(name + "/")) {
+        const key = decoded.slice(name.length + 1);
+        if (key && !key.includes("/")) return { ns: name, key };
+      }
+    }
+    return { ns: decoded, key: null };
+  }
+
+  function buildUrl(panel = state.panel, ns = state.currentNs, key = state.selectedKey) {
+    if (panel !== "secrets") return PANEL_PATH[panel] || "/ui/kv";
+    let url = "/ui/kv";
+    if (ns) url += "/" + ns.split("/").map(encodeURIComponent).join("/");
+    if (key) url += "/" + encodeURIComponent(key);
+    return url;
+  }
+
+  function syncUrl(push = true) {
+    const next = buildUrl();
+    if (location.pathname === next) return;
+    if (push) history.pushState({ panel: state.panel }, "", next);
+    else history.replaceState({ panel: state.panel }, "", next);
+  }
+
+  function canOpenPanel(name) {
+    if (name === "tokens" && !state.me?.can_manage_tokens) return false;
+    if (name === "roles" && !state.me?.can_manage_roles) return false;
+    if (name === "audit" && !state.me?.can_view_audit) return false;
+    return true;
+  }
+
+  function showPanel(name) {
     if (name !== "watch") stopWatch();
     state.panel = name;
     $$(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.nav === name));
     $$(".panel").forEach((p) => p.classList.add("hidden"));
     $(`#panel-${name}`).classList.remove("hidden");
     updateBreadcrumbs();
-    if (name === "secrets") await loadNamespaces();
+  }
+
+  async function applyRoute(push = false) {
+    let { panel, kvRest } = parseRoute();
+    if (!canOpenPanel(panel)) {
+      panel = "secrets";
+      kvRest = "";
+    }
+    showPanel(panel);
+    if (panel === "secrets") {
+      // Preserve URL during list load, then resolve ns/key
+      await loadNamespaces({ preserveUrl: true });
+      if (!push) syncUrl(false);
+    } else {
+      syncUrl(push);
+      if (panel === "tokens") await loadTokens();
+      if (panel === "roles") await loadRoles();
+      if (panel === "audit") await loadAudit(true);
+    }
+  }
+
+  async function setPanel(name, push = true) {
+    if (!canOpenPanel(name)) name = "secrets";
+    if (name === "secrets") {
+      showPanel("secrets");
+      if (push) {
+        const next = buildUrl("secrets", state.currentNs, null);
+        if (location.pathname !== next) history.pushState({ panel: "secrets" }, "", next);
+      }
+      await loadNamespaces();
+      return;
+    }
+    showPanel(name);
+    syncUrl(push);
     if (name === "tokens") await loadTokens();
     if (name === "roles") await loadRoles();
     if (name === "audit") await loadAudit(true);
@@ -691,6 +838,10 @@
     });
     $("#logout-btn").addEventListener("click", logout);
     $$(".nav-item").forEach((b) => b.addEventListener("click", () => setPanel(b.dataset.nav)));
+    window.addEventListener("popstate", () => {
+      if (!state.token) return;
+      applyRoute(false).catch((e) => toast(e.message));
+    });
 
     $("#refresh-secrets").addEventListener("click", () => loadNamespaces().catch((e) => toast(e.message)));
     $("#create-secret-btn").addEventListener("click", () => openSecretModal(null));
