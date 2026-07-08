@@ -146,6 +146,11 @@ func (s *Service) HasAccess(token *models.Token, namespace string, write bool) b
 
 // HasPermission checks if a token has a specific permission based on its role
 func (s *Service) HasPermission(token *models.Token, permission string) bool {
+	// Root token (empty scopes and no role) has all permissions
+	if len(token.Scopes) == 0 && token.Role == "" {
+		return true
+	}
+
 	if token.Role == "" {
 		return false
 	}

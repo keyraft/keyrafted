@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Keyraft</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/ui/static/style.css" />
+</head>
+<body>
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+    <symbol id="icon-key" viewBox="0 0 24 24"><path fill="currentColor" d="M7 14a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8.5 2.5 1.5 1.5 2-2 1.5 1.5-3.5 3.5-1.5-1.5 1-1-2-2 1.5-1.5Z"/></symbol>
+    <symbol id="icon-folder" viewBox="0 0 24 24"><path fill="currentColor" d="M4 5a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5Z"/></symbol>
+    <symbol id="icon-lock" viewBox="0 0 24 24"><path fill="currentColor" d="M6 10V8a6 6 0 1 1 12 0v2h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1Zm2 0h8V8a4 4 0 0 0-8 0v2Z"/></symbol>
+    <symbol id="icon-users" viewBox="0 0 24 24"><path fill="currentColor" d="M16 11a4 4 0 1 0-4-4 4 4 0 0 0 4 4ZM8 13a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-2.67 0-8 1.34-8 4v1h8v-1c0-1.1.45-2.1 1.17-2.83A9.77 9.77 0 0 0 8 15Zm8 0a5.74 5.74 0 0 0-4 1.45A4.93 4.93 0 0 1 16 19v1h8v-1c0-2.66-5.33-4-8-4Z"/></symbol>
+    <symbol id="icon-shield" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2 4 5v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V5l-8-3Zm0 2.18 6 2.25v5.57c0 4.34-2.88 8.46-6 9.81-3.12-1.35-6-5.47-6-9.81V6.43l6-2.25Z"/></symbol>
+    <symbol id="icon-list" viewBox="0 0 24 24"><path fill="currentColor" d="M4 6h16v2H4V6Zm0 5h16v2H4v-2Zm0 5h16v2H4v-2Z"/></symbol>
+    <symbol id="icon-eye" viewBox="0 0 24 24"><path fill="currentColor" d="M12 5C7 5 2.73 8.11 1 12c1.73 3.89 6 7 11 7s9.27-3.11 11-7c-1.73-3.89-6-7-11-7Zm0 12a5 5 0 1 1 5-5 5 5 0 0 1-5 5Zm0-8a3 3 0 1 0 3 3 3 3 0 0 0-3-3Z"/></symbol>
+    <symbol id="icon-radar" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 2a8 8 0 0 1 7.75 6h-2.1A6 6 0 0 0 12 6V4Zm0 4a4 4 0 0 1 3.87 3h-2.07A2 2 0 0 0 12 10V8Zm0 4a.99.99 0 0 1 1 1v5.92A8 8 0 0 1 4.08 13H10a1 1 0 0 1 1-1Z"/></symbol>
+  </svg>
+
+  <!-- Login -->
+  <section id="login-view" class="login-view">
+    <div class="login-wrap">
+      <div class="login-brand">
+        <div class="vault-logo">K</div>
+        <h1>Sign in to Keyraft</h1>
+        <p>Self-hosted configuration &amp; secrets management</p>
+      </div>
+      <div class="login-card">
+        <label class="field-label" for="token-input">Token</label>
+        <textarea id="token-input" class="input mono" rows="3" placeholder="Paste your Bearer token" autocomplete="off" spellcheck="false"></textarea>
+        <p id="login-error" class="error"></p>
+        <button id="login-btn" class="btn btn-primary btn-block">Sign In</button>
+        <p class="login-hint">Obtain a token via <code>keyrafted init</code> or ask an administrator.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- App -->
+  <section id="main-view" class="app hidden">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-logo">Keyraft</div>
+        <div id="breadcrumbs" class="breadcrumbs"></div>
+      </div>
+      <div class="topbar-right">
+        <span id="health-badge" class="health-badge">checking…</span>
+        <div class="user-chip">
+          <span id="session-meta"></span>
+          <button id="logout-btn" class="btn btn-ghost btn-sm">Sign out</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="app-body">
+      <nav class="sidenav">
+        <div class="nav-section">Secrets</div>
+        <button data-nav="secrets" class="nav-item active">
+          <svg class="nav-icon"><use href="#icon-key"/></svg> KV Store
+        </button>
+        <div class="nav-section">Access</div>
+        <button data-nav="tokens" class="nav-item admin-only hidden">
+          <svg class="nav-icon"><use href="#icon-users"/></svg> Tokens
+        </button>
+        <button data-nav="roles" class="nav-item roles-only hidden">
+          <svg class="nav-icon"><use href="#icon-shield"/></svg> Roles
+        </button>
+        <div class="nav-section">Monitoring</div>
+        <button data-nav="audit" class="nav-item audit-only hidden">
+          <svg class="nav-icon"><use href="#icon-list"/></svg> Audit Log
+        </button>
+        <button data-nav="watch" class="nav-item">
+          <svg class="nav-icon"><use href="#icon-radar"/></svg> Live Watch
+        </button>
+      </nav>
+
+      <main class="main-content">
+        <!-- Secrets -->
+        <div id="panel-secrets" class="panel">
+          <div class="page-header">
+            <div>
+              <h2>KV Secrets Engine</h2>
+              <p class="subtitle">Versioned key-value storage for config and secrets</p>
+            </div>
+            <div class="page-actions">
+              <button id="refresh-secrets" class="btn btn-secondary">Refresh</button>
+              <button id="create-secret-btn" class="btn btn-primary">Create secret</button>
+            </div>
+          </div>
+          <div class="secrets-layout">
+            <aside class="path-panel card">
+              <div class="card-header">Namespaces</div>
+              <input id="ns-search" class="input input-sm" type="search" placeholder="Filter paths…" />
+              <div id="ns-tree" class="ns-tree"></div>
+              <p id="ns-empty" class="empty-msg hidden">No namespaces. Create a secret to begin.</p>
+            </aside>
+            <section class="secrets-main">
+              <div id="keys-view" class="card">
+                <div class="card-header row-between">
+                  <div>
+                    <span class="path-label">Path</span>
+                    <code id="current-path" class="path-code">—</code>
+                  </div>
+                  <input id="key-filter" class="input input-sm" type="search" placeholder="Filter keys…" disabled />
+                </div>
+                <div class="table-container">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Key</th>
+                        <th>Type</th>
+                        <th>Version</th>
+                      <th>Updated</th>
+                      <th class="col-actions">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="keys-tbody"></tbody>
+                  </table>
+                  <p id="keys-empty" class="empty-msg">Select a namespace to list secrets.</p>
+                </div>
+              </div>
+              <div id="detail-view" class="card hidden">
+                <div class="detail-header">
+                  <button id="detail-back" class="btn btn-ghost btn-sm">← Back</button>
+                  <div>
+                    <code id="detail-path" class="path-code"></code>
+                    <div class="detail-meta" id="detail-meta"></div>
+                  </div>
+                  <div class="detail-actions">
+                    <button id="detail-edit" class="btn btn-secondary btn-sm">Edit</button>
+                    <button id="detail-delete" class="btn btn-danger btn-sm">Delete</button>
+                  </div>
+                </div>
+                <div class="tabs">
+                  <button class="tab active" data-tab="current">Current</button>
+                  <button class="tab" data-tab="versions">Version History</button>
+                  <button class="tab" data-tab="metadata">Metadata</button>
+                </div>
+                <div id="tab-current" class="tab-panel">
+                  <div class="kv-display">
+                    <label class="field-label">Value</label>
+                    <div class="value-row">
+                      <pre id="detail-value" class="value-box mono"></pre>
+                      <div class="value-tools">
+                        <button id="toggle-secret" class="btn btn-ghost btn-sm hidden">Reveal</button>
+                        <button id="copy-value" class="btn btn-ghost btn-sm">Copy</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div id="tab-versions" class="tab-panel hidden">
+                  <div class="table-container">
+                    <table class="data-table">
+                      <thead><tr><th>Version</th><th>Type</th><th>Timestamp</th><th>Value</th><th></th></tr></thead>
+                      <tbody id="versions-tbody"></tbody>
+                    </table>
+                  </div>
+                </div>
+                <div id="tab-metadata" class="tab-panel hidden">
+                  <div id="metadata-display" class="metadata-grid"></div>
+                  <p id="metadata-empty" class="empty-msg hidden">No metadata on this secret.</p>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- Tokens -->
+        <div id="panel-tokens" class="panel hidden">
+          <div class="page-header">
+            <div><h2>Access Tokens</h2><p class="subtitle">Create and manage authentication tokens</p></div>
+            <button id="new-token-btn" class="btn btn-primary">Create token</button>
+          </div>
+          <div class="card">
+            <div class="table-container">
+              <table class="data-table">
+                <thead><tr><th>Name</th><th>Role</th><th>ID</th><th>Created</th><th>Expires</th><th class="col-actions">Actions</th></tr></thead>
+                <tbody id="tokens-tbody"></tbody>
+              </table>
+              <p id="tokens-empty" class="empty-msg hidden">No tokens found.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Roles -->
+        <div id="panel-roles" class="panel hidden">
+          <div class="page-header">
+            <div><h2>Roles &amp; Policies</h2><p class="subtitle">RBAC roles and their permissions</p></div>
+          </div>
+          <div id="roles-grid" class="roles-grid"></div>
+        </div>
+
+        <!-- Audit -->
+        <div id="panel-audit" class="panel hidden">
+          <div class="page-header">
+            <div><h2>Audit Log</h2><p class="subtitle">Immutable record of operations</p></div>
+            <div class="page-actions">
+              <input id="audit-ns-filter" class="input input-sm" placeholder="Filter namespace…" />
+              <button id="refresh-audit" class="btn btn-secondary">Refresh</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="table-container">
+              <table class="data-table">
+                <thead><tr><th>Time</th><th>Action</th><th>Token</th><th>Namespace</th><th>Key</th><th>Status</th></tr></thead>
+                <tbody id="audit-tbody"></tbody>
+              </table>
+              <p id="audit-empty" class="empty-msg hidden">No audit entries.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Watch -->
+        <div id="panel-watch" class="panel hidden">
+          <div class="page-header">
+            <div><h2>Live Watch</h2><p class="subtitle">Stream changes in a namespace (long-poll)</p></div>
+            <div class="page-actions">
+              <select id="watch-ns" class="input input-sm"></select>
+              <button id="watch-toggle" class="btn btn-primary">Start watching</button>
+              <button id="watch-clear" class="btn btn-secondary">Clear</button>
+            </div>
+          </div>
+          <div class="card watch-card">
+            <div id="watch-status" class="watch-status">Select a namespace and start watching.</div>
+            <div id="watch-events" class="watch-events"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </section>
+
+  <!-- Modals -->
+  <dialog id="secret-modal" class="modal">
+    <form id="secret-form" class="modal-body">
+      <div class="modal-header"><h3 id="secret-modal-title">Create secret</h3></div>
+      <label class="field-label">Namespace path<input name="namespace" class="input" required placeholder="myapp/prod" /></label>
+      <label class="field-label">Key<input name="key" class="input" required placeholder="DATABASE_URL" /></label>
+      <label class="field-label">Type
+        <select name="type" class="input">
+          <option value="config">Config (plain)</option>
+          <option value="secret">Secret (encrypted)</option>
+        </select>
+      </label>
+      <label class="field-label">Value<textarea name="value" class="input mono" rows="5" required></textarea></label>
+      <label class="field-label">Metadata (JSON object, optional)<textarea name="metadata" class="input mono" rows="2" placeholder='{"owner":"platform"}'></textarea></label>
+      <p id="secret-form-error" class="error"></p>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close>Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="token-modal" class="modal">
+    <form id="token-form" class="modal-body">
+      <div class="modal-header"><h3>Create access token</h3></div>
+      <div class="token-mode">
+        <label><input type="radio" name="mode" value="role" checked /> Role-based (RBAC)</label>
+        <label><input type="radio" name="mode" value="scope" /> Scoped (legacy)</label>
+      </div>
+      <div id="token-role-fields">
+        <label class="field-label">Display name<input name="name" class="input" placeholder="myapp-service" /></label>
+        <label class="field-label">Role
+          <select name="role" class="input">
+            <option value="developer">developer — read, write, delete</option>
+            <option value="viewer">viewer — read only</option>
+            <option value="operator">operator — read, write, delete, audit</option>
+            <option value="admin">admin — full access</option>
+          </select>
+        </label>
+      </div>
+      <div id="token-scope-fields" class="hidden">
+        <label class="field-label">Namespace pattern<input name="scope_ns" class="input" placeholder="myapp/*" value="*" /></label>
+        <label class="scope-check"><input type="checkbox" name="scope_read" checked /> Read</label>
+        <label class="scope-check"><input type="checkbox" name="scope_write" /> Write</label>
+      </div>
+      <label class="field-label">TTL (seconds, empty = never)<input name="expires_in" class="input" type="number" min="0" placeholder="2592000" /></label>
+      <p id="token-form-error" class="error"></p>
+      <div id="token-created" class="token-reveal hidden">
+        <p class="warning-text">Copy this token now. You won't be able to see it again.</p>
+        <code id="token-created-value" class="token-value mono"></code>
+        <button type="button" id="copy-token" class="btn btn-secondary btn-sm">Copy token</button>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close>Close</button>
+        <button type="submit" class="btn btn-primary" id="token-submit">Create</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirm-modal" class="modal">
+    <form id="confirm-form" class="modal-body">
+      <div class="modal-header"><h3 id="confirm-title">Confirm</h3></div>
+      <p id="confirm-msg"></p>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close>Cancel</button>
+        <button type="submit" class="btn btn-danger">Confirm</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast hidden"></div>
+  <div id="ns-ctx-menu" class="ctx-menu hidden" role="menu">
+    <button type="button" class="ctx-item ctx-danger" id="ns-ctx-delete">Delete namespace</button>
+  </div>
+  <script src="/ui/static/app.js"></script>
+</body>
+</html>

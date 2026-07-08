@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -301,6 +302,51 @@ func (s *BoltDBStorage) ListNamespaces() ([]*models.Namespace, error) {
 	})
 
 	return namespaces, err
+}
+
+// DeleteNamespace removes a namespace and all keys (and version history) in it.
+func (s *BoltDBStorage) DeleteNamespace(name string) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		nsBucket := tx.Bucket(bucketNamespaces)
+		if nsBucket.Get([]byte(name)) == nil {
+			return fmt.Errorf("namespace not found")
+		}
+
+		kvBucket := tx.Bucket(bucketKVData)
+		verBucket := tx.Bucket(bucketKVVersions)
+		metaBucket := tx.Bucket(bucketMeta)
+		prefix := []byte(name + "/")
+
+		cursor := kvBucket.Cursor()
+		for k, v := cursor.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = cursor.Next() {
+			entry := &models.KVEntry{}
+			if err := json.Unmarshal(v, entry); err != nil {
+				continue
+			}
+			if entry.Namespace != name {
+				continue
+			}
+
+			kvKey := makeKVKey(name, entry.Key)
+			if err := kvBucket.Delete([]byte(kvKey)); err != nil {
+				return err
+			}
+
+			versionPrefix := []byte(kvKey + "#")
+			verCursor := verBucket.Cursor()
+			for vk, _ := verCursor.Seek(versionPrefix); vk != nil && bytes.HasPrefix(vk, versionPrefix); vk, _ = verCursor.Next() {
+				if err := verBucket.Delete(vk); err != nil {
+					return err
+				}
+			}
+
+			if err := metaBucket.Delete([]byte("version_" + kvKey)); err != nil {
+				return err
+			}
+		}
+
+		return nsBucket.Delete([]byte(name))
+	})
 }
 
 // SaveToken stores a token

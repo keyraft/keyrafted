@@ -155,6 +155,40 @@ func (s *Server) handleGetKey(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, entry)
 }
 
+// handleListVersions lists all versions of a key
+func (s *Server) handleListVersions(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	namespace := vars["namespace"]
+	key := vars["key"]
+
+	token, err := auth.GetTokenFromContext(r.Context())
+	if err != nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	if !s.auth.HasAccess(token, namespace, false) {
+		respondError(w, http.StatusForbidden, "insufficient permissions")
+		return
+	}
+
+	versions, err := s.engine.GetVersions(namespace, key)
+	if err != nil {
+		_ = s.audit.LogOperation(token.ID, "list_versions", namespace, key, false, err.Error())
+		respondError(w, http.StatusNotFound, "key not found")
+		return
+	}
+
+	_ = s.audit.LogOperation(token.ID, "list_versions", namespace, key, true, "")
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"namespace": namespace,
+		"key":       key,
+		"versions":  versions,
+		"count":     len(versions),
+	})
+}
+
 // handleDeleteKey deletes a key
 func (s *Server) handleDeleteKey(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -189,11 +223,16 @@ func (s *Server) handleDeleteKey(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
-// handleListKeys lists all keys in a namespace
-func (s *Server) handleListKeys(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	namespace := vars["namespace"]
+// looksLikeKeyName guesses whether a path segment is a key vs namespace part (ponytail: underscore/uppercase heuristic)
+func looksLikeKeyName(s string) bool {
+	if strings.Contains(s, "_") {
+		return true
+	}
+	return s != strings.ToLower(s)
+}
 
+// handleListKeys lists keys in a namespace, or returns a single key when the path is unambiguous
+func (s *Server) handleListKeys(w http.ResponseWriter, r *http.Request) {
 	// Get token from context
 	token, err := auth.GetTokenFromContext(r.Context())
 	if err != nil {
@@ -211,33 +250,46 @@ func (s *Server) handleListKeys(w http.ResponseWriter, r *http.Request) {
 	relativePath := strings.TrimPrefix(path, kvPrefix)
 	pathSegments := strings.Split(relativePath, "/")
 
-	// If path has 3+ segments, it's definitely a key request, not a namespace list
-	// Example: /v1/kv/myapp/prod/DATABASE_URL
-	// Try to get key "DATABASE_URL" in namespace "myapp/prod"
-	if len(pathSegments) >= 3 {
+	// 2+ segments: try get (namespace = prefix, key = last segment); fall back to list full path
+	if len(pathSegments) >= 2 {
 		potentialNamespace := strings.Join(pathSegments[:len(pathSegments)-1], "/")
 		potentialKey := pathSegments[len(pathSegments)-1]
 
-		// Check if we have access to the potential namespace
 		if s.auth.HasAccess(token, potentialNamespace, false) {
-			// Try to get the key - if it exists, handle it as a get request
+			// Specific version requested (e.g. ?version=2)
+			if versionStr := r.URL.Query().Get("version"); versionStr != "" {
+				version, err := strconv.ParseInt(versionStr, 10, 64)
+				if err != nil {
+					respondError(w, http.StatusBadRequest, "invalid version parameter")
+					return
+				}
+				ver, err := s.engine.GetVersion(potentialNamespace, potentialKey, version)
+				if err != nil {
+					_ = s.audit.LogOperation(token.ID, "get", potentialNamespace, potentialKey, false, err.Error())
+					respondError(w, http.StatusNotFound, "version not found")
+					return
+				}
+				_ = s.audit.LogOperation(token.ID, "get", potentialNamespace, potentialKey, true, "")
+				respondJSON(w, http.StatusOK, ver)
+				return
+			}
+
 			entry, err := s.engine.Get(potentialNamespace, potentialKey)
 			if err == nil && entry != nil {
-				// Key exists, handle it as a get request
 				_ = s.audit.LogOperation(token.ID, "get", potentialNamespace, potentialKey, true, "")
 				respondJSON(w, http.StatusOK, entry)
 				return
 			}
-			// Key doesn't exist - this is a get request, so return 404
-			respondError(w, http.StatusNotFound, "key not found")
-			return
+			// Explicit key path (3+ segments or key-shaped name) → 404 if missing
+			if len(pathSegments) >= 3 || looksLikeKeyName(potentialKey) {
+				_ = s.audit.LogOperation(token.ID, "get", potentialNamespace, potentialKey, false, "key not found")
+				respondError(w, http.StatusNotFound, "key not found")
+				return
+			}
 		}
-		// No access to namespace - return 404 (don't reveal namespace existence)
-		respondError(w, http.StatusNotFound, "key not found")
-		return
 	}
 
-	// Check read permission for the namespace
+	namespace := relativePath
 	if !s.auth.HasAccess(token, namespace, false) {
 		respondError(w, http.StatusForbidden, "insufficient permissions")
 		return
@@ -250,7 +302,6 @@ func (s *Server) handleListKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Log successful operation
 	_ = s.audit.LogOperation(token.ID, "list", namespace, "", true, "")
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
@@ -429,6 +480,66 @@ func (s *Server) handleGetNamespace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, ns)
+}
+
+// handleDeleteNamespace deletes a namespace and all secrets in it
+func (s *Server) handleDeleteNamespace(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	namespace := vars["namespace"]
+
+	token, err := auth.GetTokenFromContext(r.Context())
+	if err != nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	if !s.auth.HasAccess(token, namespace, true) {
+		respondError(w, http.StatusForbidden, "insufficient permissions")
+		return
+	}
+
+	keys, err := s.engine.DeleteNamespace(namespace)
+	if err != nil {
+		if err.Error() == "namespace not found" {
+			respondError(w, http.StatusNotFound, "namespace not found")
+			return
+		}
+		_ = s.audit.LogOperation(token.ID, "delete_namespace", namespace, "", false, err.Error())
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	for _, key := range keys {
+		s.watch.NotifyDelete(namespace, key)
+	}
+	_ = s.audit.LogOperation(token.ID, "delete_namespace", namespace, "", true, "")
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"status":    "deleted",
+		"namespace": namespace,
+		"keys":      keys,
+	})
+}
+
+// handleAuthMe returns the current token's identity and capability flags for the UI
+func (s *Server) handleAuthMe(w http.ResponseWriter, r *http.Request) {
+	token, err := auth.GetTokenFromContext(r.Context())
+	if err != nil {
+		respondError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"id":                token.ID,
+		"role":              token.Role,
+		"scopes":            token.Scopes,
+		"metadata":          token.Metadata,
+		"expires_at":        token.ExpiresAt,
+		"is_root":           token.Role == models.RoleAdmin || (len(token.Scopes) == 0 && token.Role == ""),
+		"can_manage_tokens": s.auth.HasPermission(token, models.PermissionManageTokens),
+		"can_view_audit":    s.auth.HasPermission(token, models.PermissionViewAudit),
+		"can_manage_roles":  s.auth.HasPermission(token, models.PermissionManageRoles),
+	})
 }
 
 // handleCreateToken creates a new authentication token

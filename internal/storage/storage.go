@@ -22,6 +22,7 @@ type Storage interface {
 	CreateNamespace(ns *models.Namespace) error
 	GetNamespace(name string) (*models.Namespace, error)
 	ListNamespaces() ([]*models.Namespace, error)
+	DeleteNamespace(name string) error
 
 	// Token operations
 	SaveToken(token *models.Token) error
