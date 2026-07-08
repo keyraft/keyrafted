@@ -101,6 +101,7 @@ select.input {
   background-position: right 0.7rem center;
   background-size: 12px 12px;
 }
+.modal select.input { width: 100%; }
 select.input:hover:not(:focus):not(:disabled) { background-color: var(--input-bg-hover); }
 select.input:focus {
   background-color: var(--input-bg-hover);
@@ -127,6 +128,9 @@ input[type="number"].input::-webkit-inner-spin-button { -webkit-appearance: none
 .field-label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .error { color: var(--danger); font-size: 13px; margin: 0; min-height: 1.2em; }
 .empty-msg { padding: 2rem; text-align: center; color: var(--text-dim); margin: 0; }
+
+html.has-session #login-view { display: none !important; }
+html.has-session #main-view { display: flex !important; }
 
 /* Login */
 .login-view {
@@ -361,6 +365,9 @@ input[type="number"].input::-webkit-inner-spin-button { -webkit-appearance: none
 .modal-footer { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 1rem 1.25rem; border-top: 1px solid var(--border); margin-top: 0.25rem; }
 .token-mode { display: flex; gap: 1rem; font-size: 13px; }
 .token-mode label { display: flex; align-items: center; gap: 0.35rem; cursor: pointer; color: var(--text-muted); }
+#token-role-fields,
+#token-scope-fields { display: flex; flex-direction: column; gap: 0.85rem; }
+#token-role-fields .field-label:not(:first-child) { padding-top: 0.25rem; }
 .scope-check { display: flex; align-items: center; gap: 0.35rem; font-size: 13px; color: var(--text-muted); }
 .token-reveal { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.85rem; margin: 0 1.25rem; }
 .warning-text { margin: 0 0 0.5rem; font-size: 12px; color: var(--warning); }

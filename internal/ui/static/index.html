@@ -7,7 +7,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/ui/static/style.css?v=3" />
+  <link rel="stylesheet" href="/ui/static/style.css?v=5" />
+  <script>
+    // Avoid login flash on refresh when a session token already exists
+    try {
+      if (sessionStorage.getItem("keyraft_token")) {
+        document.documentElement.classList.add("has-session");
+      }
+    } catch (_) {}
+  </script>
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
@@ -313,6 +321,6 @@
   <div id="ns-ctx-menu" class="ctx-menu hidden" role="menu">
     <button type="button" class="ctx-item ctx-danger" id="ns-ctx-delete">Delete namespace</button>
   </div>
-  <script src="/ui/static/app.js?v=5"></script>
+  <script src="/ui/static/app.js?v=7"></script>
 </body>
 </html>

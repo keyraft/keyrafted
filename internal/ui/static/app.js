@@ -79,12 +79,14 @@
 
   // ── Auth ─────────────────────────────────────────────────────────
   function showLogin(err = "") {
+    document.documentElement.classList.remove("has-session");
     $("#login-view").classList.remove("hidden");
     $("#main-view").classList.add("hidden");
     $("#login-error").textContent = err;
   }
 
   function showMain() {
+    document.documentElement.classList.add("has-session");
     $("#login-view").classList.add("hidden");
     $("#main-view").classList.remove("hidden");
     const role = state.me?.role || (state.me?.is_root ? "root" : "scoped");
@@ -790,15 +792,23 @@
     updateBreadcrumbs();
   }
 
+  async function ensureNamespacesLoaded() {
+    if (state.namespaces.length) {
+      populateWatchSelect();
+      return;
+    }
+    const data = await api("/v1/namespaces");
+    state.namespaces = data.namespaces || [];
+    populateWatchSelect();
+  }
+
   async function applyRoute(push = false) {
-    let { panel, kvRest } = parseRoute();
+    let { panel } = parseRoute();
     if (!canOpenPanel(panel)) {
       panel = "secrets";
-      kvRest = "";
     }
     showPanel(panel);
     if (panel === "secrets") {
-      // Preserve URL during list load, then resolve ns/key
       await loadNamespaces({ preserveUrl: true });
       if (!push) syncUrl(false);
     } else {
@@ -806,6 +816,7 @@
       if (panel === "tokens") await loadTokens();
       if (panel === "roles") await loadRoles();
       if (panel === "audit") await loadAudit(true);
+      if (panel === "watch") await ensureNamespacesLoaded();
     }
   }
 
@@ -825,6 +836,7 @@
     if (name === "tokens") await loadTokens();
     if (name === "roles") await loadRoles();
     if (name === "audit") await loadAudit(true);
+    if (name === "watch") await ensureNamespacesLoaded();
   }
 
   // ── Bind ─────────────────────────────────────────────────────────
