@@ -7,6 +7,7 @@ import (
 	"io"
 	"keyrafted/internal/auth"
 	"keyrafted/internal/models"
+	"keyrafted/internal/version"
 	"log"
 	"net/http"
 	"sort"
@@ -21,7 +22,7 @@ import (
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"status":  "ok",
-		"version": "0.1.0",
+		"version": version.Version,
 		"time":    time.Now(),
 	})
 }

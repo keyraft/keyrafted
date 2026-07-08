@@ -25,33 +25,37 @@ jobs:
 
     - name: Get version
       id: get_version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/}
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "VERSION_SHORT=${VERSION#v}" >> $GITHUB_OUTPUT
 
     - name: Build binaries
       run: |
+        LDFLAGS="-s -w -X keyrafted/internal/version.Version=${{ steps.get_version.outputs.VERSION_SHORT }}"
         # Linux AMD64
         CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-          -ldflags="-s -w -X main.Version=${{ steps.get_version.outputs.VERSION }}" \
+          -ldflags="$LDFLAGS" \
           -o keyrafted-linux-amd64 .
         
         # Linux ARM64
         CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
-          -ldflags="-s -w -X main.Version=${{ steps.get_version.outputs.VERSION }}" \
+          -ldflags="$LDFLAGS" \
           -o keyrafted-linux-arm64 .
         
         # macOS AMD64
         CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build \
-          -ldflags="-s -w -X main.Version=${{ steps.get_version.outputs.VERSION }}" \
+          -ldflags="$LDFLAGS" \
           -o keyrafted-darwin-amd64 .
         
         # macOS ARM64 (Apple Silicon)
         CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build \
-          -ldflags="-s -w -X main.Version=${{ steps.get_version.outputs.VERSION }}" \
+          -ldflags="$LDFLAGS" \
           -o keyrafted-darwin-arm64 .
         
         # Windows AMD64
         CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build \
-          -ldflags="-s -w -X main.Version=${{ steps.get_version.outputs.VERSION }}" \
+          -ldflags="$LDFLAGS" \
           -o keyrafted-windows-amd64.exe .
 
     - name: Generate checksums
@@ -113,6 +117,8 @@ jobs:
         context: .
         platforms: linux/amd64,linux/arm64
         push: true
+        build-args: |
+          VERSION=${{ steps.get_version.outputs.VERSION_SHORT }}
         tags: |
           keyraft/keyrafted:latest
           keyraft/keyrafted:${{ steps.get_version.outputs.VERSION_SHORT }}
