@@ -17,6 +17,8 @@
     watchAbort: null,
     health: null,
     viewingVersion: null,
+    auditPage: 0,
+    auditPageSize: 25,
   };
 
   // ── API ──────────────────────────────────────────────────────────
@@ -545,15 +547,25 @@
   }
 
   // ── Audit ────────────────────────────────────────────────────────
-  async function loadAudit() {
+  async function loadAudit(resetPage = false) {
     if (!state.me?.can_view_audit) return;
+    if (resetPage) state.auditPage = 0;
+
     const ns = $("#audit-ns-filter").value.trim();
-    const q = ns ? `?limit=200&namespace=${encodeURIComponent(ns)}` : "?limit=200";
-    const data = await api(`/v1/audit${q}`);
+    const offset = state.auditPage * state.auditPageSize;
+    const params = new URLSearchParams({
+      limit: String(state.auditPageSize),
+      offset: String(offset),
+    });
+    if (ns) params.set("namespace", ns);
+
+    const data = await api(`/v1/audit?${params}`);
     const logs = data.logs || [];
+    const total = data.total ?? 0;
     const tbody = $("#audit-tbody");
     tbody.innerHTML = "";
     $("#audit-empty").classList.toggle("hidden", logs.length > 0);
+
     for (const log of logs) {
       const tr = document.createElement("tr");
       tr.className = "no-hover";
@@ -566,6 +578,14 @@
         <td><span class="badge ${log.success ? "ok" : "fail"}">${log.success ? "success" : "failed"}</span></td>`;
       tbody.appendChild(tr);
     }
+
+    const pag = $("#audit-pagination");
+    pag.classList.toggle("hidden", total === 0);
+    const from = total === 0 ? 0 : offset + 1;
+    const to = offset + logs.length;
+    $("#audit-page-info").textContent = `Showing ${from}–${to} of ${total}`;
+    $("#audit-prev").disabled = state.auditPage === 0;
+    $("#audit-next").disabled = !data.has_more;
   }
 
   // ── Watch ────────────────────────────────────────────────────────
@@ -657,7 +677,7 @@
     if (name === "secrets") await loadNamespaces();
     if (name === "tokens") await loadTokens();
     if (name === "roles") await loadRoles();
-    if (name === "audit") await loadAudit();
+    if (name === "audit") await loadAudit(true);
   }
 
   // ── Bind ─────────────────────────────────────────────────────────
@@ -716,8 +736,18 @@
       toast("Copied");
     });
 
-    $("#refresh-audit").addEventListener("click", () => loadAudit().catch((e) => toast(e.message)));
-    $("#audit-ns-filter").addEventListener("keydown", (e) => { if (e.key === "Enter") loadAudit(); });
+    $("#refresh-audit").addEventListener("click", () => loadAudit(true).catch((e) => toast(e.message)));
+    $("#audit-ns-filter").addEventListener("keydown", (e) => { if (e.key === "Enter") loadAudit(true); });
+    $("#audit-prev").addEventListener("click", () => {
+      if (state.auditPage > 0) {
+        state.auditPage--;
+        loadAudit().catch((e) => toast(e.message));
+      }
+    });
+    $("#audit-next").addEventListener("click", () => {
+      state.auditPage++;
+      loadAudit().catch((e) => toast(e.message));
+    });
 
     $("#watch-toggle").addEventListener("click", () => state.watching ? stopWatch() : startWatch());
     $("#watch-clear").addEventListener("click", () => { $("#watch-events").innerHTML = ""; });

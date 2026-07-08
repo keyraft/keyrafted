@@ -422,31 +422,60 @@ func (s *BoltDBStorage) LogAudit(entry *models.AuditLogEntry) error {
 	})
 }
 
-// GetAuditLogs retrieves audit logs for a namespace
-func (s *BoltDBStorage) GetAuditLogs(namespace string, limit int) ([]*models.AuditLogEntry, error) {
+// GetAuditLogs retrieves audit logs for a namespace (newest first)
+func (s *BoltDBStorage) GetAuditLogs(namespace string, limit, offset int) ([]*models.AuditLogEntry, error) {
 	var logs []*models.AuditLogEntry
 
 	err := s.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(bucketAuditLog)
 		cursor := bucket.Cursor()
 
+		skipped := 0
 		count := 0
-		// Iterate in reverse order (newest first)
-		for k, v := cursor.Last(); k != nil && (limit <= 0 || count < limit); k, v = cursor.Prev() {
+		for k, v := cursor.Last(); k != nil; k, v = cursor.Prev() {
 			entry := &models.AuditLogEntry{}
 			if err := json.Unmarshal(v, entry); err != nil {
 				continue
 			}
-			if namespace == "" || entry.Namespace == namespace {
-				logs = append(logs, entry)
-				count++
+			if namespace != "" && entry.Namespace != namespace {
+				continue
 			}
+			if skipped < offset {
+				skipped++
+				continue
+			}
+			if limit > 0 && count >= limit {
+				break
+			}
+			logs = append(logs, entry)
+			count++
 		}
 
 		return nil
 	})
 
 	return logs, err
+}
+
+// CountAuditLogs counts audit log entries for a namespace filter
+func (s *BoltDBStorage) CountAuditLogs(namespace string) (int, error) {
+	var total int
+
+	err := s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(bucketAuditLog)
+		return bucket.ForEach(func(_, v []byte) error {
+			entry := &models.AuditLogEntry{}
+			if err := json.Unmarshal(v, entry); err != nil {
+				return nil
+			}
+			if namespace == "" || entry.Namespace == namespace {
+				total++
+			}
+			return nil
+		})
+	})
+
+	return total, err
 }
 
 // GetNextVersion gets the next version number for a key

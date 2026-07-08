@@ -20,6 +20,8 @@
   --secret: #f5a623;
   --radius: 3px;
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --input-bg: #282b30;
+  --input-bg-hover: #2e3238;
   --font: "IBM Plex Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
 }
@@ -60,13 +62,68 @@ body {
 
 /* Inputs */
 .input {
-  width: 100%; background: var(--black); border: 1px solid var(--border);
-  color: var(--text); border-radius: var(--radius); padding: 0.55rem 0.75rem;
-  font: inherit; font-size: 13px;
+  width: 100%;
+  background-color: var(--input-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 0.55rem 0.75rem;
+  font: inherit;
+  font-size: 13px;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
 }
-.input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.input::placeholder { color: var(--text-dim); }
+.input:hover:not(:focus):not(:disabled) {
+  background-color: var(--input-bg-hover);
+  border-color: var(--border-light);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+  background-color: var(--input-bg-hover);
+}
+.input:disabled { opacity: 0.55; cursor: not-allowed; }
 .input-sm { max-width: 220px; padding: 0.4rem 0.6rem; font-size: 12px; }
 textarea.input { resize: vertical; min-height: 80px; }
+
+select.input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 2.25rem;
+  cursor: pointer;
+  background-color: var(--input-bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5 6 8 9.5 4.5' stroke='%23a2a9b4' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 12px;
+}
+select.input:hover:not(:focus):not(:disabled) {
+  background-color: var(--input-bg-hover);
+}
+select.input:focus {
+  background-color: var(--input-bg-hover);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 4.5 6 8 9.5 4.5' stroke='%233d7fff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 12px;
+}
+select.input option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+input[type="search"].input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  height: 14px;
+  width: 14px;
+  cursor: pointer;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14' fill='none'%3E%3Cpath d='M4 4l6 6M10 4l-6 6' stroke='%236d7580' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+input[type="number"].input { -moz-appearance: textfield; }
+input[type="number"].input::-webkit-outer-spin-button,
+input[type="number"].input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .field-label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .error { color: var(--danger); font-size: 13px; margin: 0; min-height: 1.2em; }
 .empty-msg { padding: 2rem; text-align: center; color: var(--text-dim); margin: 0; }
@@ -212,6 +269,13 @@ textarea.input { resize: vertical; min-height: 80px; }
 .data-table td.actions-cell .btn { display: inline-flex; margin-left: 0.35rem; vertical-align: middle; }
 .data-table tbody tr.no-hover:hover { background: transparent; }
 
+.pagination {
+  display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+  padding: 0.75rem 1rem; border-top: 1px solid var(--border);
+  font-size: 13px; color: var(--text-muted);
+}
+.pagination-actions { display: flex; gap: 0.5rem; }
+
 .badge {
   display: inline-block; padding: 0.15rem 0.45rem; border-radius: 2px;
   font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
@@ -243,7 +307,7 @@ textarea.input { resize: vertical; min-height: 80px; }
 .kv-display .field-label { margin-bottom: 0.5rem; }
 .value-row { display: flex; gap: 0.75rem; align-items: flex-start; }
 .value-box {
-  flex: 1; margin: 0; padding: 0.85rem 1rem; background: var(--black);
+  flex: 1; margin: 0; padding: 0.85rem 1rem; background: var(--input-bg);
   border: 1px solid var(--border); border-radius: var(--radius);
   font-size: 13px; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow: auto;
 }

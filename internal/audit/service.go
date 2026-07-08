@@ -36,9 +36,14 @@ func (s *Service) LogOperation(tokenID, action, namespace, key string, success b
 	return s.store.LogAudit(entry)
 }
 
-// GetLogs retrieves audit logs for a namespace
-func (s *Service) GetLogs(namespace string, limit int) ([]*models.AuditLogEntry, error) {
-	return s.store.GetAuditLogs(namespace, limit)
+// GetLogs retrieves audit logs for a namespace with pagination (newest first)
+func (s *Service) GetLogs(namespace string, limit, offset int) ([]*models.AuditLogEntry, error) {
+	return s.store.GetAuditLogs(namespace, limit, offset)
+}
+
+// CountLogs returns total audit log entries matching the namespace filter
+func (s *Service) CountLogs(namespace string) (int, error) {
+	return s.store.CountAuditLogs(namespace)
 }
 
 // generateID generates a unique ID for audit log entries

@@ -32,7 +32,8 @@ type Storage interface {
 
 	// Audit log operations
 	LogAudit(entry *models.AuditLogEntry) error
-	GetAuditLogs(namespace string, limit int) ([]*models.AuditLogEntry, error)
+	GetAuditLogs(namespace string, limit, offset int) ([]*models.AuditLogEntry, error)
+	CountAuditLogs(namespace string) (int, error)
 
 	// Version management
 	GetNextVersion(namespace, key string) (int64, error)

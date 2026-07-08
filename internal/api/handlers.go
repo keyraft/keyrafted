@@ -689,24 +689,41 @@ func (s *Server) handleGetAuditLogs(w http.ResponseWriter, r *http.Request) {
 
 	// Parse query parameters
 	namespace := r.URL.Query().Get("namespace")
-	limitStr := r.URL.Query().Get("limit")
-	limit := 100 // default limit
-	if limitStr != "" {
+	limit := 25
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
 			limit = l
 		}
 	}
+	if limit > 100 {
+		limit = 100
+	}
+	offset := 0
+	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
+		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
+			offset = o
+		}
+	}
 
-	// Get audit logs
-	logs, err := s.audit.GetLogs(namespace, limit)
+	total, err := s.audit.CountLogs(namespace)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	logs, err := s.audit.GetLogs(namespace, limit, offset)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"logs":  logs,
-		"count": len(logs),
+		"logs":     logs,
+		"count":    len(logs),
+		"total":    total,
+		"limit":    limit,
+		"offset":   offset,
+		"has_more": offset+len(logs) < total,
 	})
 }
 
