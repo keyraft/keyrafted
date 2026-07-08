@@ -23,6 +23,19 @@ Keyraft stores configuration and secrets securely, manages versioning, and provi
 * ✅ HTTP/JSON protocol
 * ✅ Prometheus metrics endpoint
 * ✅ Go SDK with caching and auto-reload
+* ✅ Built-in web UI (token login, keys, tokens, audit)
+
+---
+
+## Web UI
+
+After starting the server, open [http://localhost:7200/](http://localhost:7200/) and sign in with a Bearer token (the root token from `keyrafted init`, or any token an admin created).
+
+From the UI you can:
+
+* Browse namespaces and edit config / secrets
+* Create and revoke tokens (admin)
+* View audit logs (admin / operator)
 
 ---
 
@@ -341,14 +354,17 @@ curl http://localhost:7200/v1/audit \
 |--------|----------|-------------|
 | `PUT` | `/v1/kv/{namespace}/{key}` | Set value |
 | `GET` | `/v1/kv/{namespace}/{key}` | Get value |
+| `GET` | `/v1/kv/{namespace}/{key}/versions` | List all versions of a key |
 | `GET` | `/v1/kv/{namespace}/{key}?version={n}` | Get specific version |
 | `GET` | `/v1/kv/{namespace}` | List keys in namespace |
 | `DELETE` | `/v1/kv/{namespace}/{key}` | Delete key |
 | `GET` | `/v1/watch/{namespace}?timeout={duration}` | Watch for changes (long-poll) |
 | `GET` | `/v1/watch/{namespace}?stream=true` | Watch for changes (SSE stream) |
+| `GET` | `/v1/auth/me` | Current token identity & capabilities |
 | `POST` | `/v1/auth/token` | Create token (role-based or scoped) |
 | `GET` | `/v1/auth/tokens` | List tokens |
 | `DELETE` | `/v1/auth/token/{token}` | Revoke token |
+| `GET` | `/` or `/ui/` | Web UI |
 | `GET` | `/v1/roles` | List all roles |
 | `GET` | `/v1/roles/{role}` | Get role details |
 | `GET` | `/v1/audit` | Get audit logs |

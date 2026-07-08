@@ -6,6 +6,7 @@ import (
 	"keyrafted/internal/audit"
 	"keyrafted/internal/auth"
 	"keyrafted/internal/engine"
+	"keyrafted/internal/ui"
 	"keyrafted/internal/watch"
 	"log"
 	"net/http"
@@ -47,18 +48,21 @@ func (s *Server) setupRouter() {
 	r.HandleFunc("/v1/health", s.handleHealth).Methods("GET")
 	r.HandleFunc("/v1/metrics", s.handleMetrics).Methods("GET")
 
+	// Web UI (embedded)
+	uiHandler := ui.Handler()
+	r.PathPrefix("/ui/").Handler(uiHandler)
+	r.Handle("/", uiHandler)
+
 	// Protected endpoints (auth required)
 	api := r.PathPrefix("/v1").Subrouter()
 	api.Use(s.loggingMiddleware)
 	api.Use(s.auth.Middleware)
 
-	// KV endpoints
-	// List route must come first to handle namespaces with slashes (e.g., "myapp/prod")
-	// Get/Set/Delete routes come after for operations on specific keys
-	api.HandleFunc("/kv/{namespace:.+}", s.handleListKeys).Methods("GET")
+	// KV endpoints — GET uses handleListKeys (get-or-list heuristic); mutations use key routes
+	api.HandleFunc("/kv/{namespace:.+}/{key:[^/]+}/versions", s.handleListVersions).Methods("GET")
 	api.HandleFunc("/kv/{namespace:.+}/{key:[^/]+}", s.handleSetKey).Methods("PUT")
 	api.HandleFunc("/kv/{namespace:.+}/{key:[^/]+}", s.handleDeleteKey).Methods("DELETE")
-	api.HandleFunc("/kv/{namespace:.+}/{key:[^/]+}", s.handleGetKey).Methods("GET")
+	api.HandleFunc("/kv/{namespace:.+}", s.handleListKeys).Methods("GET")
 
 	// Watch endpoint
 	api.HandleFunc("/watch/{namespace:.+}", s.handleWatch).Methods("GET")
@@ -66,8 +70,10 @@ func (s *Server) setupRouter() {
 	// Namespace endpoints
 	api.HandleFunc("/namespaces", s.handleListNamespaces).Methods("GET")
 	api.HandleFunc("/namespaces/{namespace:.+}", s.handleGetNamespace).Methods("GET")
+	api.HandleFunc("/namespaces/{namespace:.+}", s.handleDeleteNamespace).Methods("DELETE")
 
 	// Auth endpoints
+	api.HandleFunc("/auth/me", s.handleAuthMe).Methods("GET")
 	api.HandleFunc("/auth/token", s.handleCreateToken).Methods("POST")
 	api.HandleFunc("/auth/tokens", s.handleListTokens).Methods("GET")
 	api.HandleFunc("/auth/token/{token}", s.handleRevokeToken).Methods("DELETE")

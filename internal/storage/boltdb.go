@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -303,6 +304,51 @@ func (s *BoltDBStorage) ListNamespaces() ([]*models.Namespace, error) {
 	return namespaces, err
 }
 
+// DeleteNamespace removes a namespace and all keys (and version history) in it.
+func (s *BoltDBStorage) DeleteNamespace(name string) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		nsBucket := tx.Bucket(bucketNamespaces)
+		if nsBucket.Get([]byte(name)) == nil {
+			return fmt.Errorf("namespace not found")
+		}
+
+		kvBucket := tx.Bucket(bucketKVData)
+		verBucket := tx.Bucket(bucketKVVersions)
+		metaBucket := tx.Bucket(bucketMeta)
+		prefix := []byte(name + "/")
+
+		cursor := kvBucket.Cursor()
+		for k, v := cursor.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = cursor.Next() {
+			entry := &models.KVEntry{}
+			if err := json.Unmarshal(v, entry); err != nil {
+				continue
+			}
+			if entry.Namespace != name {
+				continue
+			}
+
+			kvKey := makeKVKey(name, entry.Key)
+			if err := kvBucket.Delete([]byte(kvKey)); err != nil {
+				return err
+			}
+
+			versionPrefix := []byte(kvKey + "#")
+			verCursor := verBucket.Cursor()
+			for vk, _ := verCursor.Seek(versionPrefix); vk != nil && bytes.HasPrefix(vk, versionPrefix); vk, _ = verCursor.Next() {
+				if err := verBucket.Delete(vk); err != nil {
+					return err
+				}
+			}
+
+			if err := metaBucket.Delete([]byte("version_" + kvKey)); err != nil {
+				return err
+			}
+		}
+
+		return nsBucket.Delete([]byte(name))
+	})
+}
+
 // SaveToken stores a token
 func (s *BoltDBStorage) SaveToken(token *models.Token) error {
 	return s.db.Update(func(tx *bolt.Tx) error {
@@ -376,31 +422,60 @@ func (s *BoltDBStorage) LogAudit(entry *models.AuditLogEntry) error {
 	})
 }
 
-// GetAuditLogs retrieves audit logs for a namespace
-func (s *BoltDBStorage) GetAuditLogs(namespace string, limit int) ([]*models.AuditLogEntry, error) {
+// GetAuditLogs retrieves audit logs for a namespace (newest first)
+func (s *BoltDBStorage) GetAuditLogs(namespace string, limit, offset int) ([]*models.AuditLogEntry, error) {
 	var logs []*models.AuditLogEntry
 
 	err := s.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(bucketAuditLog)
 		cursor := bucket.Cursor()
 
+		skipped := 0
 		count := 0
-		// Iterate in reverse order (newest first)
-		for k, v := cursor.Last(); k != nil && (limit <= 0 || count < limit); k, v = cursor.Prev() {
+		for k, v := cursor.Last(); k != nil; k, v = cursor.Prev() {
 			entry := &models.AuditLogEntry{}
 			if err := json.Unmarshal(v, entry); err != nil {
 				continue
 			}
-			if namespace == "" || entry.Namespace == namespace {
-				logs = append(logs, entry)
-				count++
+			if namespace != "" && entry.Namespace != namespace {
+				continue
 			}
+			if skipped < offset {
+				skipped++
+				continue
+			}
+			if limit > 0 && count >= limit {
+				break
+			}
+			logs = append(logs, entry)
+			count++
 		}
 
 		return nil
 	})
 
 	return logs, err
+}
+
+// CountAuditLogs counts audit log entries for a namespace filter
+func (s *BoltDBStorage) CountAuditLogs(namespace string) (int, error) {
+	var total int
+
+	err := s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(bucketAuditLog)
+		return bucket.ForEach(func(_, v []byte) error {
+			entry := &models.AuditLogEntry{}
+			if err := json.Unmarshal(v, entry); err != nil {
+				return nil
+			}
+			if namespace == "" || entry.Namespace == namespace {
+				total++
+			}
+			return nil
+		})
+	})
+
+	return total, err
 }
 
 // GetNextVersion gets the next version number for a key

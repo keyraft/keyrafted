@@ -157,3 +157,30 @@ func (e *Engine) ListNamespaces() ([]*models.Namespace, error) {
 func (e *Engine) GetNamespace(name string) (*models.Namespace, error) {
 	return e.storage.GetNamespace(name)
 }
+
+// DeleteNamespace removes a namespace and all keys in it. Returns deleted key names for notifications.
+func (e *Engine) DeleteNamespace(name string) ([]string, error) {
+	if err := models.ValidateNamespace(name); err != nil {
+		return nil, err
+	}
+	if _, err := e.storage.GetNamespace(name); err != nil {
+		return nil, err
+	}
+
+	entries, err := e.storage.List(name)
+	if err != nil {
+		return nil, err
+	}
+
+	keys := make([]string, 0)
+	for _, entry := range entries {
+		if entry.Namespace == name {
+			keys = append(keys, entry.Key)
+		}
+	}
+
+	if err := e.storage.DeleteNamespace(name); err != nil {
+		return nil, err
+	}
+	return keys, nil
+}
