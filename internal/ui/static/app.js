@@ -16,7 +16,6 @@
     watching: false,
     watchAbort: null,
     health: null,
-    nsExpanded: new Set(),
     viewingVersion: null,
   };
 
@@ -144,115 +143,7 @@
     ).join("");
   }
 
-  // ── Namespace tree (grouped by path prefix) ───────────────────────
-  function buildNsTree(names) {
-    const root = { segment: "", fullPath: "", children: new Map(), isNamespace: false, namespacePath: "" };
-    for (const name of names) {
-      const parts = name.split("/");
-      let node = root;
-      let built = "";
-      for (const part of parts) {
-        built = built ? `${built}/${part}` : part;
-        if (!node.children.has(part)) {
-          node.children.set(part, {
-            segment: part,
-            fullPath: built,
-            children: new Map(),
-            isNamespace: false,
-            namespacePath: "",
-          });
-        }
-        node = node.children.get(part);
-      }
-      node.isNamespace = true;
-      node.namespacePath = name;
-    }
-    return root;
-  }
-
-  function nsTreeMatchesFilter(node, filter) {
-    if (!filter) return true;
-    const self = node.isNamespace && node.namespacePath.toLowerCase().includes(filter);
-    for (const child of node.children.values()) {
-      if (nsTreeMatchesFilter(child, filter)) return true;
-    }
-    return self;
-  }
-
-  function ensureExpandedFor(ns) {
-    const parts = ns.split("/");
-    let p = "";
-    for (let i = 0; i < parts.length - 1; i++) {
-      p = p ? `${p}/${parts[i]}` : parts[i];
-      state.nsExpanded.add(p);
-    }
-  }
-
-  function toggleNsExpand(path) {
-    if (state.nsExpanded.has(path)) state.nsExpanded.delete(path);
-    else state.nsExpanded.add(path);
-    renderNamespaceTree();
-  }
-
-  function renderNsNode(node, depth = 0, filter = "") {
-    const ul = document.createElement("ul");
-    ul.className = depth ? "ns-children" : "ns-node";
-    const entries = [...node.children.entries()].sort(([a], [b]) => a.localeCompare(b));
-
-    for (const [, child] of entries) {
-      if (filter && !nsTreeMatchesFilter(child, filter)) continue;
-
-      const li = document.createElement("li");
-      const hasKids = child.children.size > 0;
-      const expanded = !hasKids || state.nsExpanded.has(child.fullPath) || !!filter;
-
-      const row = document.createElement("div");
-      row.className = "ns-row";
-      row.style.paddingLeft = `${depth * 14}px`;
-
-      if (hasKids) {
-        const chevron = document.createElement("button");
-        chevron.type = "button";
-        chevron.className = "ns-chevron";
-        chevron.textContent = expanded ? "▾" : "▸";
-        chevron.setAttribute("aria-label", expanded ? "Collapse" : "Expand");
-        chevron.addEventListener("click", (e) => {
-          e.stopPropagation();
-          toggleNsExpand(child.fullPath);
-        });
-        row.appendChild(chevron);
-      } else {
-        const spacer = document.createElement("span");
-        spacer.className = "ns-chevron-spacer";
-        row.appendChild(spacer);
-      }
-
-      const btn = document.createElement("button");
-      btn.type = "button";
-      const active = child.isNamespace && state.currentNs === child.namespacePath;
-      btn.className = "ns-item" + (active ? " active" : "") + (child.isNamespace ? "" : " ns-item-folder");
-      btn.innerHTML = `<svg class="folder-icon"><use href="#icon-folder"/></svg><span>${esc(child.segment)}</span>`;
-      if (child.isNamespace) {
-        btn.addEventListener("click", () => selectNamespace(child.namespacePath));
-        btn.addEventListener("contextmenu", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          showNsContextMenu(e.clientX, e.clientY, child.namespacePath);
-        });
-      } else if (hasKids) {
-        btn.addEventListener("click", () => toggleNsExpand(child.fullPath));
-      }
-      row.appendChild(btn);
-      li.appendChild(row);
-
-      if (hasKids && expanded) {
-        li.appendChild(renderNsNode(child, depth + 1, filter));
-      }
-      ul.appendChild(li);
-    }
-    return ul;
-  }
-
+  // ── Namespace list (flat) ─────────────────────────────────────────
   function renderNamespaceTree() {
     const filter = ($("#ns-search").value || "").toLowerCase().trim();
     const names = state.namespaces.map((n) => n.name).sort();
@@ -261,10 +152,31 @@
     $("#ns-empty").classList.toggle("hidden", names.length > 0);
     if (!names.length) return;
 
-    names.forEach((n) => ensureExpandedFor(n));
+    const ul = document.createElement("ul");
+    ul.className = "ns-node";
+    for (const name of names) {
+      if (filter && !name.toLowerCase().includes(filter)) continue;
 
-    const root = buildNsTree(names);
-    const ul = renderNsNode(root, 0, filter);
+      const li = document.createElement("li");
+      const row = document.createElement("div");
+      row.className = "ns-row";
+      row.dataset.nsPath = name;
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ns-item" + (state.currentNs === name ? " active" : "");
+      btn.title = name;
+      btn.innerHTML = `<svg class="folder-icon"><use href="#icon-folder"/></svg><span>${esc(name)}</span>`;
+      btn.addEventListener("click", () => selectNamespace(name));
+      row.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        showNsContextMenu(e.clientX, e.clientY, name);
+      });
+      row.appendChild(btn);
+      li.appendChild(row);
+      ul.appendChild(li);
+    }
     if (ul.childNodes.length) tree.appendChild(ul);
   }
 
@@ -767,6 +679,7 @@
     $("#ns-ctx-menu").addEventListener("click", (e) => e.stopPropagation());
     document.addEventListener("click", hideNsContextMenu);
     document.addEventListener("contextmenu", (e) => {
+      if (e.target.closest("[data-ns-path]")) return;
       if (!$("#ns-ctx-menu").contains(e.target)) hideNsContextMenu();
     });
     document.addEventListener("keydown", (e) => {
